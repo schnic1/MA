@@ -1,16 +1,21 @@
-# This is a sample Python script.
+# import statements
+from MA.data_processing import *
+from MA.technical_indicators import *
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+"""extract_zip('Intraday_Data.zip')
+
+data = open_pkl('ES1 Index.pkl')
+print(data.columns)"""
+
+filename = 'data/ES1 Index.pkl'
+
+data = run_data_cleaning(filename)
+
+data = create_tech_indicators(data)
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    pass
