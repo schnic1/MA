@@ -1,9 +1,14 @@
 # Bollinger Bands
+import pandas as pd
 
-def Bollinger_Bands(df, close_col='ClosePrice'):
+
+# Volatility indicators
+def bollinger_bands(close_price_series):
     from ta.volatility import BollingerBands
+
+    df = pd.DataFrame()
     # Initialize Bollinger Bands Indicator
-    indicator_bb = BollingerBands(close=df[close_col], window=20, window_dev=2)
+    indicator_bb = BollingerBands(close=close_price_series, window=20, window_dev=2)
 
     # Add Bollinger Bands features
     df['bb_bbm'] = indicator_bb.bollinger_mavg()
@@ -18,20 +23,23 @@ def Bollinger_Bands(df, close_col='ClosePrice'):
 
     return df
 
-def RSI(df, close_col='ClosePrice'):
+
+# Momentum indicators
+def rsi(close_price_series):
     from ta.momentum import RSIIndicator
 
     # Initialize RSI
-    indicator_rsi = RSIIndicator(close=df[close_col], window=14)
-    df['rsi'] = indicator_rsi.rsi()
+    indicator_rsi = RSIIndicator(close=close_price_series, window=14)
 
-    return df
+    return indicator_rsi.rsi()
 
-def MACD(df, close_col='ClosePrice'):
+
+# Trend indicators
+def macd(close_price_series):
     from ta.trend import MACD
-
+    df = pd.DataFrame()
     # initialize MACD
-    indicator_macd = MACD(close=df[close_col], window_slow=26, window_fast=12, window_sign=9)
+    indicator_macd = MACD(close=close_price_series, window_slow=26, window_fast=12, window_sign=9)
 
     # add MACD features
     df['macd'] = indicator_macd.macd()
@@ -40,16 +48,68 @@ def MACD(df, close_col='ClosePrice'):
 
     return df
 
-def OnBalanceVolume(df, close_col='ClosePrice', vol_col='TotalVolume'):
-    from ta.volume import OnBalanceVolumeIndicator
-    indicator_obv = OnBalanceVolumeIndicator(close=df[close_col], volume=df[vol_col])
-    df['obv'] = indicator_obv.on_balance_volume()
+
+def sma(close_price_series):
+    from ta.trend import SMAIndicator
+    df = pd.DataFrame()
+
+    df['sma50'] = SMAIndicator(close_price_series, window=50)
+    df['sma200'] = SMAIndicator(close_price_series, window=200)
+
     return df
+
+
+def ema(close_price_series):
+    from ta.trend import EMAIndicator
+
+    indicator_ema = EMAIndicator(close_price_series)
+
+    return indicator_ema.ema_indicator()
+
+
+# TODO: Look at ADX again!
+def adx(high_price_series,low_price_series, close_price_series):
+    from ta.trend import ADXIndicator
+    df = pd.DataFrame()
+
+    indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series)
+
+    df['adx'] = indicator_adx.adx()
+    df['adx_neg'] = indicator_adx.adx_neg()
+    df['adx_pos'] = indicator_adx.adx_pos()
+
+    return df
+
+
+# Volume indicator
+def obv(close_price_series, vol_series):
+    from ta.volume import OnBalanceVolumeIndicator
+    indicator_obv = OnBalanceVolumeIndicator(close=close_price_series, volume=vol_series)
+
+    return indicator_obv.on_balance_volume()
+
 
 def create_tech_indicators(df):
-    df = Bollinger_Bands(df)
-    df = RSI(df)
-    df = MACD(df)
-    df = OnBalanceVolume(df)
+    bb_df = bollinger_bands(df['ClosePrice'])
+    rsi_df = rsi(df['ClosePrice'])
+    macd_df = macd(df['ClosePrice'])
+    sma_df = sma(df['ClosePrice'])
+    ema_df = ema(df['ClosePrice'])
+    adx_df = adx(df['HighPrice'], df['LowPrice'], df['ClosePrice'])
+    obv_df = obv(df['ClosePrice'], df['TotalVolume'])
+
+    # add technical indicators to original dataframe
+    df = pd.concat([df, bb_df, rsi_df, macd_df, sma_df, ema_df, adx_df, obv_df], axis=1)
 
     return df
+
+
+# split data into training, validation and test set
+# (????) validation even needed ????
+# TODO: Check whether validation is needed for RL
+def train_test_split(df):
+    df_train = df.loc[:'2016']
+    df_val = df.loc['2017']
+    df_test = df.loc['2018':]
+
+    return df_train, df_val, df_test

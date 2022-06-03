@@ -13,6 +13,7 @@ data = run_data_cleaning(filename)
 
 data = create_tech_indicators(data)
 
+print(len(data.columns))
 
 
 

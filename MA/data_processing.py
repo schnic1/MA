@@ -4,18 +4,16 @@ import pandas as pd
 import os
 
 
-
 def extract_zip(filename):
-
     path = os.path.join('data', filename)
     archive = zipfile.ZipFile(path, 'r')
     archive.extractall('data')
+    return archive.namelist()
 
 
 def open_pkl_file(filename):
     # open pickle file and generate pandas dataframe
     df = pd.read_pickle(filename)
-
     return df
 
 
@@ -50,11 +48,3 @@ def run_data_cleaning(filename):
     df = mod_ticker_column(open_pkl_file(filename))
 
     return df
-
-
-
-
-
-
-
-
