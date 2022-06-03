@@ -32,7 +32,7 @@ def mod_ticker_column(df):
         if tkr[3] != tkr[-1]:
             indexer = df[df['mod_Ticker'] == tkr].index
 
-            # special case with 9, eg 19 ESH0 with 2019 belongs to 2020, not 2010
+            # special case with 9, e.g. 19 ESH0 with 2019 belongs to 2020, not 2010
             if tkr[-1] == '9':
                 corr_tkr = tkr[:-2] + str(int(tkr[-2:]) + 1)
 
