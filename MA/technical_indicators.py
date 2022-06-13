@@ -15,6 +15,7 @@ def bollinger_bands(close_price_series):
     df['bb_bbh'] = indicator_bb.bollinger_hband()
     df['bb_bbl'] = indicator_bb.bollinger_lband()
 
+    # TODO: look into bb_bbhi and bb_bbli, need to be 1 or 0 ???
     # Add Bollinger Band high indicator
     df['bb_bbhi'] = indicator_bb.bollinger_hband_indicator()
 
@@ -53,8 +54,8 @@ def sma(close_price_series):
     from ta.trend import SMAIndicator
     df = pd.DataFrame()
 
-    df['sma50'] = SMAIndicator(close_price_series, window=50)
-    df['sma200'] = SMAIndicator(close_price_series, window=200)
+    df['sma50'] = SMAIndicator(close_price_series, window=50).sma_indicator()
+    df['sma200'] = SMAIndicator(close_price_series, window=200).sma_indicator()
 
     return df
 
@@ -102,14 +103,3 @@ def create_tech_indicators(df):
     df = pd.concat([df, bb_df, rsi_df, macd_df, sma_df, ema_df, adx_df, obv_df], axis=1)
 
     return df
-
-
-# split data into training, validation and test set
-# (????) validation even needed ????
-# TODO: Check whether validation is needed for RL
-def train_test_split(df):
-    df_train = df.loc[:'2016']
-    df_val = df.loc['2017']
-    df_test = df.loc['2018':]
-
-    return df_train, df_val, df_test

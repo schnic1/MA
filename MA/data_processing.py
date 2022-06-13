@@ -43,8 +43,9 @@ def mod_ticker_column(df):
 
     return df
 
-
 def run_data_cleaning(filename):
     df = mod_ticker_column(open_pkl_file(filename))
 
     return df
+
+if
