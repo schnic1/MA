@@ -13,6 +13,9 @@ class TradeEnv(Environment):
         return state_space
 
     # creating action space with all actions agent is able to take
+    """make that actions are only possible for available contracts, 
+    since the data for the two contracts are not equally long, and have some different indices,
+    the agent then should only be able to trade the one that is available"""
     def actions(self):
         return action_space
 

@@ -1,10 +1,8 @@
-import zipfile
-import pandas as pd
-from MA.technical_indicators import *
 import os
+import zipfile
+from MA.technical_indicators import *
 
 
-#  and return
 def extract_zip(path) -> list:
     """
     Extract a zip file
@@ -25,27 +23,27 @@ def load_pklfile(path) -> pd.DataFrame:
     df = pd.read_pickle(path)
     return df
 
-#def rename_columns(df) -> pd.DataFrame:
 
-
-
-def training_test_split(df) -> pd.DataFrame:
+def training_test_split(df) -> tuple:
     """
     split dataset into training and testing set
     :param df: (df) pandas dataframe
     :return: (df) pandas dataframe
     """
-    end = '2017-01-01'  #TODO: Adjust cut off for training/test set split
-    training_set = df.index < end
-    test_set = df.index > end
+    end = '2017-01-01'  # TODO: Adjust cut off for training/test set split
+    training_set_bool_array = pd.Series(df.index < end, name='bools')
+    training_set = df[training_set_bool_array.values]
+
+    test_set_bool_array = pd.Series(df.index >= end, name='bools')
+    test_set = df[test_set_bool_array.values]
+
     return training_set, test_set
 
 
-
-def preprocess_data()-> pd.DataFrame:
+def preprocess_data() -> pd.DataFrame:
     """
     processing data
-    :return: training and test dataset
+    :return: (df) pandas dataframe
     """
     file_list = extract_zip('data/Intraday_Data.zip')
     globex_code = ['ES', 'ZN']  # Globex code of the used future contracts
@@ -53,36 +51,43 @@ def preprocess_data()-> pd.DataFrame:
     for ind, file in enumerate(file_list):
         data = load_pklfile('data/'+str(file))
 
-        #TODO: drop unnecessary columns like ticker
+        # run technical indicators on the current data
         data = create_tech_indicators(data)
 
-        # rename columns to distinguish between the assets
+        # drop unnecessary columns (ticker)
+        data = data.drop('Ticker', axis=1)
+
+        # rename columns to distinguish between the asset columns
         data.columns = [f'{globex_code[ind]}:{c.lower()}' for c in data.columns]
         datasets.append(data)
 
-        # print(data.columns)
-        # print((data['ES:bb_bbhi']==1).sum(), (data['ES:bb_bbhi']==0).sum())
-
     # merge data sets from datasets list to one big dataset on datetime index
     final_df = pd.concat(datasets, axis=1)
-    #print(final_df.iloc[-1])
-    final_df = final_df.dropna(axis=0)
+
+    # TODO: drop nans? some data points are available for one future contract but not the other
+    # The nans at the end are missing due to a shorter data set -> berücksichtigen in the code
+    """    
+    # print(final_df.iloc[0])
+    # print(final_df.iloc[-1])
+    # final_df = final_df.dropna(axis=0)
     # print('og shape: 263551, 44', final_df.shape, final_df.columns,)
     # print('dropped', 263551 - final_df.shape[0], 'rows')
-    #print(final_df.iloc[-1])
-    # print(final_df.dtypes)
-
-    # TODO: check whether dates are congruent in the both datasets
-
-
-
-    # split into training & test data
+    # print(final_df.iloc[-1])
+    """
 
     # return training & test data
+    return final_df
 
 
+def run_preprocess(data_path) -> tuple:
+    """Run the preprocessing of the data"""
 
+    if os.path.exists(data_path):
+        processed_data = load_pklfile(data_path)
+    else:
+        processed_data = preprocess_data()
+        # processed_data.to_pickle(preprocessed_data)  # Uncomment line to create data file
+        # processed_data.to_csv("data/processed_data.csv")  # for data inspection
 
-
-
-
+    # training test split
+    return training_test_split(processed_data)

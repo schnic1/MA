@@ -1,4 +1,3 @@
-# Bollinger Bands
 import pandas as pd
 
 
@@ -69,7 +68,7 @@ def ema(close_price_series):
 
 
 # TODO: Look at ADX again!
-def adx(high_price_series,low_price_series, close_price_series):
+def adx(high_price_series, low_price_series, close_price_series):
     from ta.trend import ADXIndicator
     df = pd.DataFrame()
 
