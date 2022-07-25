@@ -1,21 +1,22 @@
 # import statement
-from MA.preprocessing import *
-
-
 import time
+start = time.time()
+
+from MA.preprocessing import run_preprocess
+from MA.environment import build_env
+from MA.config import DATA_PATH, env_kwargs
 import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-start = time.time()
-# output dimension for RL is (1, x) so for each date we have all the features from both contracts
-# if dimension needs to be changed to (2, y), some code is ready in the preprocessing.py file on the bottom
-training, test, processed_data = run_preprocess("data/processed_data.pkl")
-# run_preprocess("data/processed_data.pkl")
 
-print(processed_data.head())
-print(processed_data.shape)
+training, test, processed_data = run_preprocess(DATA_PATH)
+# print(training.shape)  # 334666 datapoints !!
 # until here everything is fine!!
+
+env, _ = build_env(training, env_kwargs)
+print(env.state)
+
 """
 environment = build_environment(training, 'my_exchange')
 
@@ -25,7 +26,8 @@ reward = agent.train(n_steps=100, n_episodes=100)
 """
 
 end = time.time()
-print('running time: ', (end-start), 'seconds')
+print(f'running time:{round(end - start, 4)} seconds')
+
 
 
 

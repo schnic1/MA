@@ -1,5 +1,6 @@
 pandas==1.4.3
 numpy==1.19.5
 ta==0.10.1
-Box2D
-git+https://github.com/AI4Finance-Foundation/FinRL.git
+'stable-baselines3[extra]'==1.6.0
+gym==0.25.0
+
