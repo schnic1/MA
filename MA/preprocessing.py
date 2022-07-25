@@ -1,6 +1,8 @@
 import os
 import zipfile
 import pandas as pd
+import math
+import numpy as np
 
 from MA.technical_indicators import create_tech_indicators
 from MA.config import ZIP_PATH, CUT_OFF_DATE
@@ -85,7 +87,11 @@ def preprocess_data(zip_path) -> pd.DataFrame:
     # merge the equally long dataframe
     final_df = pd.merge(full_dfs[0], full_dfs[1], how='outer')
     final_df = final_df.sort_values(['date', 'ticker']).reset_index(drop=True)
-    final_df = final_df.fillna(0)
+    date_tic = final_df[final_df.columns.tolist()[:2]]
+    other_cols = final_df[final_df.columns.tolist()[2:]]
+    other_cols = other_cols.astype('object').fillna(0).astype('float')
+    final_df = date_tic.join(other_cols)
+
     return final_df
 
 
