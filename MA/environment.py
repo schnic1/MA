@@ -180,7 +180,7 @@ class TradingEnv(gym.Env):
 
         else:
             total_prev_asset = self.previous_state[0] + sum(
-                np.array(self.state[1:(self.contract_dim + 1)])
+                np.array(self.previous_state[1:(self.contract_dim + 1)])
                 * np.array(self.previous_state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)])
                                                             )
 
@@ -200,7 +200,7 @@ class TradingEnv(gym.Env):
         return self.state
 
     def render(self, mode='human', close=False):
-        return self.state
+        return print(self.state)
 
     def _set_seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -270,7 +270,7 @@ def build_env(df, specs):
     # defining the state space of the environment
     # cash balance + (closing prices + positions per contract) + (technical indicators per contract)
     state_space = 1 + 2 * contract_dim + len(tech_ind_list)*contract_dim
-    print(f"Contract Dimension: {contract_dim}, State Space: {state_space}")
+    # print(f"Contract Dimension: {contract_dim}, State Space: {state_space}" \n -----)
 
     # add the data specific specifications to the model dict
     specs.update({"state_space": state_space,
@@ -283,3 +283,22 @@ def build_env(df, specs):
     vec_train_env = train_env.vectorize_env()
 
     return train_env, vec_train_env
+
+
+def environment_functioning(env):
+    action = env.action_space.sample()
+    before_state = env.state[0:5]
+    print(before_state)
+    env.step(action)
+    print(f'action taken: {env.actions_memory[-1]}')
+    after_state = env.state[0:5]
+    print(after_state)
+    print('reward for step:', round(env.rewards_memory[-1], 2))
+    # print('total assets:', round(env.asset_memory[-1], 2))
+    print('---')
+
+
+def show_env(num, env):
+    for n in range(num):
+        print('step:', n+1)
+        environment_functioning(env)
