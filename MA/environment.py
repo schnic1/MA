@@ -236,6 +236,7 @@ class TradingEnv(gym.Env):
                  + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], []))
         return state
 
+    # TODO: parallelize environment?
     def vectorize_env(self):
         env = DummyVecEnv([lambda: self])
         obs = env.reset()
@@ -265,11 +266,12 @@ def build_env(df, specs):
     """
     # some more specifications for the environment depending on the dataset
     contract_dim = len(df.ticker.unique())  # number of different tickers in dataset
-    tech_ind_list = df.columns.tolist()[7:]  # different indicators (they start at column index 7
+    # TODO: way to use tech_ind_list returned with function "create_tech_indicators"?
+    tech_ind_list = df.columns.tolist()[7:]  # different indicators (they start at column index 7)
 
     # defining the state space of the environment
     # cash balance + (closing prices + positions per contract) + (technical indicators per contract)
-    state_space = 1 + 2 * contract_dim + len(tech_ind_list)*contract_dim
+    state_space = 1 + 2 * contract_dim + len(tech_ind_list) * contract_dim
     # print(f"Contract Dimension: {contract_dim}, State Space: {state_space}" \n -----)
 
     # add the data specific specifications to the model dict

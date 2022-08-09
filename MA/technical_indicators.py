@@ -99,6 +99,7 @@ def create_tech_indicators(df):
     obv_df = obv(df['ClosePrice'], df['TotalVolume'])
 
     # add technical indicators to original dataframe
-    df = pd.concat([df, bb_df, rsi_df, macd_df, sma_df, ema_df, adx_df, obv_df], axis=1)
+    df_indicator = pd.concat([df, bb_df, rsi_df, macd_df, sma_df, ema_df, adx_df, obv_df], axis=1)
+    indicator_list = [indicator for indicator in df_indicator.columns.tolist() if indicator not in df.columns.tolist()]
 
-    return df
+    return df_indicator, indicator_list

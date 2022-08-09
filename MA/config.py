@@ -7,4 +7,5 @@ env_kwargs = {"max_contracts": 100,
 ZIP_PATH = "data/Intraday_Data.zip"
 DATA_PATH = "data/processed_data.pkl"
 
-CUT_OFF_DATE = "2017-01-01"
+CUT_OFF_DATE_train = "2016-01-01"
+CUT_OFF_DATE_test = "2018-01-01"

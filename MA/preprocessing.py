@@ -3,7 +3,7 @@ import zipfile
 import pandas as pd
 
 from MA.technical_indicators import create_tech_indicators
-from MA.config import ZIP_PATH, CUT_OFF_DATE
+from MA.config import ZIP_PATH, CUT_OFF_DATE_train, CUT_OFF_DATE_test
 
 
 def extract_zip(path) -> list:
@@ -17,7 +17,7 @@ def extract_zip(path) -> list:
     return archive.namelist()
 
 
-def load_pklfile(path) -> pd.DataFrame:
+def load_pkl_file(path) -> pd.DataFrame:
     """
     load pickle file from path
     :param path: path of pickle file
@@ -27,36 +27,96 @@ def load_pklfile(path) -> pd.DataFrame:
     return df
 
 
-def training_test_split(df, cut_off, date_col='date') -> tuple:
+def standardize_data(training, validation, test, tech_indicator_list) -> tuple:
+    """
+    standardize technical indicator for the agent
+    # TODO: del source again:
+    Source: https://towardsdatascience.com/preventing-data-leakage-in-your-machine-learning-model-9ae54b3cd1fb#:~:text=After%20splitting%20the%20data%20into,validation%20and%20test%20set%20normalization.
+    :param training: (df) pandas dataframe
+    :param validation: (df) pandas dataframe
+    :param test: (df) pandas dataframe
+    :param tech_indicator_list: list of technical indicators
+    :return: tuple with standardized training, validation and test set
+    """
+    for tech_ind in tech_indicator_list:
+        # only standardize for non-binary indicators
+        if len(training[tech_ind].unique()) > 2:
+            # determine mean and standard deviation for standardization from training set
+            mean = training[tech_ind].mean()
+            std = training[tech_ind].std()
+
+            # standardize sets with training mean and standard deviation
+            training[tech_ind] = (training[tech_ind] - mean)/std
+            validation[tech_ind] = (validation[tech_ind] - mean)/std
+            test[tech_ind] = (test[tech_ind] - mean)/std
+
+    return training, validation, test
+
+
+def training_test_split(df, cut_off_training, cut_off_test, date_col='date') -> tuple:
     """
     split dataset into training and testing set
     :param df: (df) pandas dataframe
-    :param cut_off:  cut-off date to split into training and test set
+    :param cut_off_training:  cut-off date to split into training & validation set
+    :param cut_off_test:  cut-off dates to split into validation & test set
     :param date_col: default date columns used for splitting
     :return: (df) pandas dataframe
     """
-    training_set = df[(df[date_col]) < cut_off]
-    test_set = df[(df[date_col]) >= cut_off]
+    training_set = df[(df[date_col] < cut_off_training)]
+    validation_set = df[(df[date_col] >= cut_off_training) & (df[date_col] < cut_off_test)]
+    test_set = df[(df[date_col] >= cut_off_test)]
 
     training_set = training_set.sort_values([date_col, 'ticker'], ignore_index=True)
+    validation_set = validation_set.sort_values([date_col, 'ticker'], ignore_index=True)
     test_set = test_set.sort_values([date_col, 'ticker'], ignore_index=True)
 
     training_set.index = training_set[date_col].factorize()[0]
+    validation_set.index = validation_set[date_col].factorize()[0]
     test_set.index = test_set[date_col].factorize()[0]
 
-    return training_set, test_set
+    return training_set, validation_set, test_set
 
 
-def preprocess_data(zip_path) -> pd.DataFrame:
+def align_and_merge(dataset_list, globex_code_list) -> pd.DataFrame:
+    """
+    add missing timestamps to the dataframes and combine in the same time interval
+    :param dataset_list: list containing the dataset for both tickers
+    :param globex_code_list: contains the globex code of the future contracts
+    :return: (df) pandas dataframe; merged with entries for both ticker for each timestamp
+    """
+    # extract all unique timestamps from datasets
+    unique_dates = pd.concat([dataset_list[i] for i in range(len(dataset_list))])['date'].unique()
+    unique_dates_df = pd.DataFrame({'date': unique_dates})
+
+    all_dates_dfs = []
+    for ind, dataset in enumerate(dataset_list):
+        # extend dataset by missing timestamps
+        all_dates = unique_dates_df.merge(dataset, how='outer')
+
+        # set ticker for the dataframe filling newly added lines
+        all_dates = all_dates.assign(ticker=globex_code_list[ind])
+        all_dates_dfs.append(all_dates)
+
+    # combine dataframes with the different tickers but same timeinterval
+    full_df = pd.merge(all_dates_dfs[0], all_dates_dfs[1], how='outer')
+    full_df = full_df.sort_values(['date', 'ticker']).reset_index(drop=True)
+    full_df = full_df.fillna(0)
+
+    return full_df
+
+
+def preprocess_data(zip_path) -> list:
     """
     processing data
     :return: (df) pandas dataframe
     """
     file_list = extract_zip(zip_path)
     globex_code = ['ES', 'ZN']  # Globex code of the used future contracts
-    datasets = []
+    training_sets = []
+    validation_sets = []
+    test_sets = []
     for ind, file in enumerate(file_list):
-        data = load_pklfile('data/'+str(file))
+        data = load_pkl_file('data/'+str(file))
 
         # add 'date' column to dataframe and reset index
         data.insert(loc=0, column='date', value=data.index)
@@ -64,38 +124,33 @@ def preprocess_data(zip_path) -> pd.DataFrame:
         data = data.drop('index', axis=1)  # drop index column which at this point is still the datetime index
 
         # run technical indicators on the current data
-        data = create_tech_indicators(data)
-        datasets.append(data)
+        data, tech_ind_list = create_tech_indicators(data)
 
-    # extract all the unique dates from both dataframes
-    unique_dates = pd.concat([datasets[0], datasets[1]])['date'].unique()
-    unique_dates_df = pd.DataFrame({'date': unique_dates})
+        # rename columns to all lower
+        data.columns = [f'{c.lower()}' for c in data.columns]
+        # data = data.assign(ticker=globex_code[ind])
 
-    # add the missing dates from the other dataframe
-    full_dfs = []
-    for ind, dataset in enumerate(datasets):
-        # extend dataframe by missing dates
-        all_dates_dataframe = unique_dates_df.merge(dataset, how='outer')
+        # split data into training, evaluation & test set
+        training, validation, test = training_test_split(data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
 
-        # rename columns to all lower letters
-        all_dates_dataframe.columns = [f'{c.lower()}' for c in all_dates_dataframe.columns]
-        all_dates_dataframe = all_dates_dataframe.assign(ticker=globex_code[ind])
-        full_dfs.append(all_dates_dataframe)
+        # standardize technical indicator data using mean and std from training set for all
+        training, validation, test = standardize_data(training, validation, test, tech_ind_list)
 
-    # merge the equally long dataframe
-    final_df = pd.merge(full_dfs[0], full_dfs[1], how='outer')
-    final_df = final_df.sort_values(['date', 'ticker']).reset_index(drop=True)
-    final_df = final_df.fillna(0)
+        # append the standardized sets to the according lists
+        training_sets.append(training)
+        validation_sets.append(validation)
+        test_sets.append(test)
 
-    # if df.fillna(0) does not work anymore
-    """    
-    date_tic = final_df[final_df.columns.tolist()[:2]]
-    other_cols = final_df[final_df.columns.tolist()[2:]]
-    other_cols = other_cols.astype('object').fillna(0).astype('float')
-    final_df = date_tic.join(other_cols)
-    """
+    # the training, validation and test the sets for both tickers, length of sub-lists = number of tickers
+    datasets = [training_sets, validation_sets, test_sets]
 
-    return final_df
+    final_sets = []
+    for dataset_list in datasets:
+        aligned = align_and_merge(dataset_list, globex_code)
+        aligned.index = aligned['date'].factorize()[0]
+        final_sets.append(aligned)
+
+    return final_sets
 
 
 def run_preprocess(data_path) -> tuple:
@@ -105,15 +160,18 @@ def run_preprocess(data_path) -> tuple:
     """
 
     if os.path.exists(data_path):
-        processed_data = load_pklfile(data_path)
+        processed_data = load_pkl_file(data_path)
+        # training, validation, test split of loaded and processed data
+        training, validation, test = training_test_split(processed_data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
         print('data loaded')
+
     else:
         print('starting preprocessing')
-        processed_data = preprocess_data(ZIP_PATH)
+        set_list = preprocess_data(ZIP_PATH)
+        processed_data = pd.concat([df for df in set_list], axis=0)
         processed_data.to_pickle(data_path)  # Uncomment line to create data file
-        # processed_data.to_csv("data/test_file.csv")  # for data inspection
+        processed_data.to_csv("data/test_file.csv")  # for data inspection
 
-    # training test split
-    training, test = training_test_split(processed_data, CUT_OFF_DATE)
+        training, validation, test = set_list[0], set_list[1], set_list[2]
 
-    return training, test, processed_data
+    return training, validation, test, processed_data
