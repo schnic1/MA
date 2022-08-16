@@ -11,6 +11,7 @@ numpy = "1.21.0"
 ta = "0.10.1"
 gym = "0.21.0"
 stable-baselines3 = "1.6.0"
+tensorboard = "^2.10.0"
 
 [tool.poetry.dev-dependencies]
 

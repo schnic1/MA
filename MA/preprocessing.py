@@ -26,7 +26,7 @@ def load_pkl_file(path) -> pd.DataFrame:
     df = pd.read_pickle(path)
     return df
 
-
+# TODO: standardize data or normalize?
 def standardize_data(training, validation, test, tech_indicator_list) -> tuple:
     """
     standardize technical indicator for the agent
@@ -166,12 +166,14 @@ def run_preprocess(data_path) -> tuple:
         print('data loaded')
 
     else:
+        # .iloc[4:] for starting with trading possibilities for both contracts
         print('starting preprocessing')
         set_list = preprocess_data(ZIP_PATH)
         processed_data = pd.concat([df for df in set_list], axis=0)
+        processed_data = processed_data.iloc[4:]
         processed_data.to_pickle(data_path)  # Uncomment line to create data file
-        processed_data.to_csv("data/test_file.csv")  # for data inspection
+        # processed_data.to_csv("data/test_file.csv")  # for data inspection
 
-        training, validation, test = set_list[0], set_list[1], set_list[2]
+        training, validation, test = set_list[0].iloc[4:], set_list[1], set_list[2]
 
     return training, validation, test, processed_data

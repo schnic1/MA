@@ -1,13 +1,19 @@
-import gym
 import numpy as np
 import pandas as pd
+
+import gym
 from gym import spaces
 from gym.utils import seeding
 
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.env_checker import check_env
 
 
 class TradingEnv(gym.Env):
+    """
+    Trading environment for the future contracts.
+    Based on FinRL git hub repo: https://github.com/AI4Finance-Foundation/FinRL/blob/master/finrl/meta/env_stock_trading/env_stocktrading.py
+    """
 
     metadata = {'render.modes': ['human']}
 
@@ -19,7 +25,7 @@ class TradingEnv(gym.Env):
                  initial_amount,
                  tech_indicators,
                  max_contracts,
-                 buying_fee,
+                 buying_fee,  # TODO: Adjust fees to Sandro's input
                  selling_fee,
                  point_in_time=0,
                  initial=True,
@@ -63,7 +69,7 @@ class TradingEnv(gym.Env):
 
         self._set_seed()
 
-    def step(self, actions):
+    def step(self, actions) -> (np.array, float, bool, None):
         self.terminal = self.point_in_time >= len(self.df.index.unique()) - 1
         if self.terminal:
             total_end_assets = self.state[0] + sum(
@@ -100,7 +106,7 @@ class TradingEnv(gym.Env):
             actions = actions * self.max_contracts
             actions = actions.astype(int)
 
-            total_start_asset = self.state[0] + sum(
+            step_start_asset = self.state[0] + sum(
                 np.array(self.state[1:(self.contract_dim + 1)])
                 * np.array(self.state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)])
                                                     )
@@ -124,19 +130,21 @@ class TradingEnv(gym.Env):
             self.data = self.df.loc[self.point_in_time, :]
             self.state = self.update_state()
 
-            total_end_assets = self.state[0] + sum(
+            step_end_assets = self.state[0] + sum(
                 np.array(self.state[1:(self.contract_dim + 1)])
                 * np.array(self.state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)])
                                                     )
 
-            self.asset_memory.append(total_end_assets)
+            self.asset_memory.append(step_end_assets)
             self.date_memory.append(self.fetch_point_in_time())
-            self.reward = total_end_assets - total_start_asset
+            self.reward = step_end_assets - step_start_asset
             self.rewards_memory.append(self.reward)
+
+            self.state = self.state.astype(np.float32)
 
         return self.state, self.reward, self.terminal, {}
 
-    def _buy_contract(self, index, action):
+    def _buy_contract(self, index, action) -> int:
         if self.state[index+1] > 0:
             affordable_contract = self.state[0] // self.state[index + 1]
 
@@ -154,7 +162,7 @@ class TradingEnv(gym.Env):
 
         return buying_num_contracts
 
-    def _sell_contract(self, index, action):
+    def _sell_contract(self, index, action) -> int:
         if self.state[index + 1] > 0:
             if self.state[index + self.contract_dim + 1] > 0:
                 selling_num_contracts = min(abs(action), self.state[index + self.contract_dim+1])
@@ -172,14 +180,14 @@ class TradingEnv(gym.Env):
 
         return selling_num_contracts
 
-    def reset(self):
+    def reset(self) -> np.array:
         self.state = self.initiate_state()
 
         if self.initial:
             self.asset_memory = [self.initial_amount]
 
         else:
-            total_prev_asset = self.previous_state[0] + sum(
+            total_prev_asset = [self.previous_state[0]] + sum(
                 np.array(self.previous_state[1:(self.contract_dim + 1)])
                 * np.array(self.previous_state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)])
                                                             )
@@ -196,21 +204,22 @@ class TradingEnv(gym.Env):
         self.date_memory = [self.fetch_point_in_time()]
 
         self.episodes += 1
+        self.state = self.state.astype(np.float32)
 
         return self.state
 
-    def render(self, mode='human', close=False):
+    def render(self, mode='human', close=False) -> None:
         return print(self.state)
 
-    def _set_seed(self, seed=None):
+    def _set_seed(self, seed=1) -> list:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def fetch_point_in_time(self):
+    def fetch_point_in_time(self) -> int:
         date = self.data.date.unique()[0]
         return date
 
-    def initiate_state(self) -> list:
+    def initiate_state(self) -> np.array:
         # for initialising the environment & initial state
         if self.initial:
             # structure of a state in the environment (list)
@@ -227,19 +236,21 @@ class TradingEnv(gym.Env):
                      + self.previous_state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)]
                      + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], [])
                      )
-        return state
+        return np.array(state)
 
-    def update_state(self):
+    def update_state(self) -> np.array:
         state = ([self.state[0]]
                  + self.data.closeprice.values.tolist()
                  + list(self.state[(self.contract_dim + 1):(self.contract_dim * 2 + 1)])
                  + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], []))
-        return state
+        return np.array(state)
 
     # TODO: parallelize environment?
+    # TODO: increments episodes, needed?
     def vectorize_env(self):
         env = DummyVecEnv([lambda: self])
         obs = env.reset()
+
         return env, obs
 
     def save_asset_memory(self):
@@ -282,6 +293,9 @@ def build_env(df, specs):
 
     # establishing and vectorizing our environment with the data and the model specification dict
     train_env = TradingEnv(df=df, **specs)
+    environment_check(train_env)  # checks our environment on its implementation, raises warnings if faulty
+
+    train_env = TradingEnv(df=df, **specs)  # newly build checked environment to start from 1 episode
     vec_train_env = train_env.vectorize_env()
 
     return train_env, vec_train_env
@@ -304,3 +318,8 @@ def show_env(num, env):
     for n in range(num):
         print('step:', n+1)
         environment_functioning(env)
+
+
+# TODO: increments episodes, maybe do it optional
+def environment_check(env):
+    check_env(env)
