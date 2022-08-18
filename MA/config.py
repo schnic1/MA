@@ -3,10 +3,18 @@ ZIP_PATH = "data/Intraday_Data.zip"
 DATA_PATH = "data/processed_data.pkl"
 
 # environment kwargs
-env_kwargs = {"max_contracts": 1000000,
-              "initial_amount": 1000000,
-              "buying_fee": 0.001,
-              "selling_fee": 0.001}
+env_kwargs = {"max_contracts": 10,
+              "initial_amount": 100000,
+              "buying_fee": 0.001,  # ES: , ZN:
+              "selling_fee": 0.001}  # ES: , ZN:
+
+new_env_kwargs = {"initial_amount": 100000,
+                  "contract_size": [50, 1000],  # [ES, ZN]
+                  "margins": [18000, 5000],  # [ES, ZN]
+                  "bid_ask": [0.5, 0.5],  # [ES, ZN], according to Bloomberg Aug. 2022
+                  "commission": 2,  # normal market rate
+                  "margin_calls": [9000, 2500]  # [ES, ZN]
+                  }
 
 # data split specifications -> training, validation, test set
 CUT_OFF_DATE_train = "2019-01-01"
