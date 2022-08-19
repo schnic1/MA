@@ -1,3 +1,4 @@
+from datetime import datetime
 from stable_baselines3 import A2C, PPO, TD3, SAC, DDPG
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
@@ -18,9 +19,9 @@ def build_agent(env, agent):
     return agent
 
 
-def train_model(time_steps, agent) -> tuple:
+def train_model(agent, total_timesteps) -> tuple:
     # reset_num_timesteps=False: training continues from last training step
-    trained_model = agent.learn(total_timesteps=time_steps, reset_num_timesteps=False, tb_log_name=str(agent))
+    trained_model = agent.learn(total_timesteps=total_timesteps, reset_num_timesteps=False, tb_log_name=str(agent))
     return trained_model
 
 
@@ -41,11 +42,11 @@ def make_prediction(trained_model, env, render=False):
 
 
 # TODO: does loading the model reset the whole already done training? if yes, maybe 'get_parameters' & 'set_parameters'
-def save_model(trained_model, method, multiplier_training, multiplier_validation=None,  path=SAVE_MODEL_PATH):
-    if multiplier_validation is not None:
-        saved_name = f'{method.upper()}_{multiplier_training}x_{multiplier_validation}x'
+def save_model(trained_model, method, path=SAVE_MODEL_PATH, validation=False):
+    if validation:
+        saved_name = f'{method.upper()}_val_{datetime.now().strftime("%d_%m %H:%M")}'
     else:
-        saved_name = f'{method.upper()}_{multiplier_training}x'
+        saved_name = f'{method.upper()}_{datetime.now().strftime("%d_%m %H:%M")}'
     trained_model.save(f'{path}{saved_name}')
     print(f'saved model as {saved_name}.zip')
     return saved_name

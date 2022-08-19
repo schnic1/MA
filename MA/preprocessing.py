@@ -1,6 +1,7 @@
 import os
 import zipfile
 import pandas as pd
+import datetime as dt
 
 from MA.technical_indicators import create_tech_indicators
 from MA.config import ZIP_PATH, CUT_OFF_DATE_train, CUT_OFF_DATE_test
@@ -25,6 +26,7 @@ def load_pkl_file(path) -> pd.DataFrame:
     """
     df = pd.read_pickle(path)
     return df
+
 
 # TODO: standardize data or normalize?
 def standardize_data(training, validation, test, tech_indicator_list) -> tuple:
@@ -92,7 +94,7 @@ def align_and_merge(dataset_list, globex_code_list) -> pd.DataFrame:
     for ind, dataset in enumerate(dataset_list):
         # extend dataset by missing timestamps
         all_dates = unique_dates_df.merge(dataset, how='outer')
-
+        all_dates['date'] = all_dates['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
         # set ticker for the dataframe filling newly added lines
         all_dates = all_dates.assign(ticker=globex_code_list[ind])
         all_dates_dfs.append(all_dates)
@@ -166,14 +168,12 @@ def run_preprocess(data_path) -> tuple:
         print('data loaded')
 
     else:
-        # .iloc[4:] for starting with trading possibilities for both contracts
         print('starting preprocessing')
         set_list = preprocess_data(ZIP_PATH)
         processed_data = pd.concat([df for df in set_list], axis=0)
-        processed_data = processed_data.iloc[4:]
         processed_data.to_pickle(data_path)  # Uncomment line to create data file
         # processed_data.to_csv("data/test_file.csv")  # for data inspection
 
-        training, validation, test = set_list[0].iloc[4:], set_list[1], set_list[2]
+        training, validation, test = set_list[0], set_list[1], set_list[2]
 
     return training, validation, test, processed_data
