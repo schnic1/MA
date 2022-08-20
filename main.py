@@ -32,7 +32,7 @@ agent = build_agent(env, method)
 episodes_training = 3
 episodes_validation = 3
 
-total_timesteps = 1000
+total_timesteps = 10000
 
 # train & save model
 print('start training on training set')
