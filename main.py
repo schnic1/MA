@@ -27,43 +27,43 @@ env, _ = build_env(training, env_kwargs)
 # show_env(10, env)  # see how the environment works with actions, step, etc.
 
 # build agent
-agent = build_agent(env, method)
+model = build_agent(env, method)
 
-episodes_training = 3
-episodes_validation = 3
+episodes_training = 6  # (239670 // 2000) * 2 # 2000 is approx. one month, so train with each month as a random start twice
+episodes_validation = 3  # 236444 // 2000
 
-total_timesteps = 10000
+total_timesteps = 15000
 
 # train & save model
-print('start training on training set')
-for ep in range(episodes_training):
-    trained_model = train_model(agent, total_timesteps=total_timesteps)
+print('started training on training set')
+while env.episodes <= episodes_training:
+    trained_model = train_model(model, total_timesteps=total_timesteps)
 
-# model_name = save_model(trained_model, method)
-
+model_name = save_model(trained_model, method)
 """
 # validation environment
+env_kwargs['validation'] = True
 val_env, _ = build_env(validation, env_kwargs)
 loaded_model = load_model(method, model_name, val_env)
-policy_evaluation(loaded_model, val_env)
+# policy_evaluation(loaded_model, val_env)
+
 
 action_dict = make_prediction(loaded_model, val_env)
 
 # after prediction, use validation set for further training
-print('start training on validation set')
-for ep in range(episodes_validation):
-    val_trained_model = train_model(agent)
-model_name_val = save_model(val_trained_model, method, validation=True)
-# TODO: fine tuning of model
 
+
+print('started training on validation set')
+while val_env.episodes <= episodes_validation:
+    val_trained_model = train_model(loaded_model, total_timesteps=total_timesteps)
+model_name_val = save_model(val_trained_model, method, validation=True)
+"""
+"""
 # test environment
 test_env, _ = build_env(test, env_kwargs)
 print('predicting with test set')
 val_loaded_model = load_model(method, model_name_val, test_env)
-
 policy_evaluation(val_loaded_model, test_env)
-
-action_dict_test = make_prediction(val_trained_model, test_env, render=False)
 """
 
 end = time.time()
