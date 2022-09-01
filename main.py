@@ -29,7 +29,7 @@ env, _ = build_env(training, env_kwargs)
 # build agent
 model = build_agent(env, method)
 
-episodes_training = 6  # (239670 // 2000) * 2 # 2000 is approx. one month, so train with each month as a random start twice
+episodes_training = 30  # (239670 // 2000) * 2 # 2000 is approx. one month, train with each month as a random start twice
 episodes_validation = 3  # 236444 // 2000
 
 total_timesteps = 15000
@@ -52,13 +52,11 @@ action_dict = make_prediction(loaded_model, val_env)
 
 # after prediction, use validation set for further training
 
-
 print('started training on validation set')
 while val_env.episodes <= episodes_validation:
     val_trained_model = train_model(loaded_model, total_timesteps=total_timesteps)
 model_name_val = save_model(val_trained_model, method, validation=True)
-"""
-"""
+
 # test environment
 test_env, _ = build_env(test, env_kwargs)
 print('predicting with test set')

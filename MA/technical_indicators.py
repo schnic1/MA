@@ -14,7 +14,6 @@ def bollinger_bands(close_price_series):
     df['bb_bbh'] = indicator_bb.bollinger_hband()
     df['bb_bbl'] = indicator_bb.bollinger_lband()
 
-    # TODO: look into bb_bbhi and bb_bbli, need to be 1 or 0 ???
     # Add Bollinger Band high indicator
     df['bb_bbhi'] = indicator_bb.bollinger_hband_indicator()
 
@@ -62,7 +61,7 @@ def sma(close_price_series):
 def ema(close_price_series):
     from ta.trend import EMAIndicator
 
-    indicator_ema = EMAIndicator(close_price_series)
+    indicator_ema = EMAIndicator(close_price_series, window=14)
 
     return indicator_ema.ema_indicator()
 
@@ -72,7 +71,7 @@ def adx(high_price_series, low_price_series, close_price_series):
     from ta.trend import ADXIndicator
     df = pd.DataFrame()
 
-    indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series)
+    indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series, window=14)
 
     df['adx'] = indicator_adx.adx()
     df['adx_neg'] = indicator_adx.adx_neg()

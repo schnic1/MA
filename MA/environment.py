@@ -9,6 +9,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_checker import check_env
 
 
+# TODO: implement changes as in "https://colab.research.google.com/drive/1tUAKi7o9NF755fUb0r3DV5HSh_xg7JZZ#scrollTo=Grjjs6tjXd46" under "Changes to Environment"
+
+
 class TradingEnv(gym.Env):
     """
     Trading environment for the future contracts.
@@ -70,7 +73,7 @@ class TradingEnv(gym.Env):
         self._set_seed()
 
     def step(self, actions) -> (np.array, float, bool, None):
-        self.terminal = self.point_in_time >= len(self.df.index.unique()) - 1
+        self.terminal = self.point_in_time >= len(self.df.index.unique()) - 1  # TODO: just train for one month
         if self.terminal:
             total_end_assets = self.state[0] + sum(
                 np.array(self.state[1:(self.contract_dim + 1)])
@@ -100,6 +103,8 @@ class TradingEnv(gym.Env):
                     # sharpe_ratio =
                     # print(f'Sharpe ratio: {sharpe_ratio:0.2f}')
                 print('---------------------------')
+
+            # TODO: return statement!!! same as below but self.terminal=False again? see FinRL!!
 
         else:
             # define action
@@ -282,7 +287,7 @@ def build_env(df, specs):
 
     # defining the state space of the environment
     # cash balance + (closing prices + positions per contract) + (technical indicators per contract)
-    state_space = 1 + 2 * contract_dim + len(tech_ind_list) * contract_dim
+    state_space = 1 + 3 * contract_dim + len(tech_ind_list) * contract_dim
     # print(f"Contract Dimension: {contract_dim}, State Space: {state_space}" \n -----)
 
     # add the data specific specifications to the model dict

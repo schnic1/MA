@@ -13,7 +13,8 @@ from stable_baselines3.common.env_checker import check_env
 class TradingEnv(gym.Env):
     """
     Trading environment for the future contracts.
-    Based on FinRL git hub repo: https://github.com/AI4Finance-Foundation/FinRL/blob/master/finrl/meta/env_stock_trading/env_stocktrading.py
+    Based on FinRL git hub repo: https://github.com/AI4Finance-Foundation/FinRL/blob/master/finrl/meta/env_stock_trading
+    /env_stocktrading.py
     """
 
     metadata = {'render.modes': ['human']}
@@ -30,7 +31,7 @@ class TradingEnv(gym.Env):
                  commission,
                  tech_indicators,
                  validation,
-                 point_in_time=0,
+                 point_in_time=5,
                  initial=True,
                  previous_state=list,
                  print_verbosity=1):
@@ -39,7 +40,7 @@ class TradingEnv(gym.Env):
         self.initial = initial
         self.initial_step = point_in_time
         self.point_in_time = point_in_time
-        self.data = self.df.loc[self.point_in_time, :]
+        self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
         self.contract_dim = contract_dim
 
         self.contract_size = contract_size
@@ -49,10 +50,9 @@ class TradingEnv(gym.Env):
         self.initial_amount = initial_amount
         # self.deposits = [0] * contract_dim
         # self.contract_positions = [0] * contract_dim
-        self.contract_positions_initial = [2] * contract_dim
+        self.contract_positions_initial = [0] * contract_dim
         self.contract_positions = self.contract_positions_initial.copy()
-        self.initial_deposits = [float(36000),  # self.contract_positions[0]*self.margins[0],
-                                 float(10000)]  # self.contract_positions[1]*self.margins[1]]
+        self.initial_deposits = [0] * contract_dim
         self.deposits = self.initial_deposits.copy()
 
         self.max_contracts = [
@@ -102,10 +102,10 @@ class TradingEnv(gym.Env):
 
     def step(self, actions):
         # uncomment print statements to see functioning
-        print(self._fetch_point_in_time())
-        print('at step start: cash:', self.state[0],
-              '| positions:', self.contract_positions,
-              '| deposit:', self.deposits)
+        # print(self._fetch_point_in_time())
+        # print('at step start: cash:', self.state[0],
+        #       '| positions:', self.contract_positions,
+        #       '| deposit:', self.deposits)
 
         int_actions = np.array(actions) - np.array(self.max_contracts)
         actions = np.array(actions) - np.array(self.max_contracts)
@@ -113,26 +113,33 @@ class TradingEnv(gym.Env):
 
         begin_costs = self.costs
 
+        position_sign = np.array([1 if pos > 0 else 2 if pos == 0 else 0 for pos in self.contract_positions])
+        action_sign = np.array([1 if act > 0 else 0 for act in actions])
+        signal = position_sign + action_sign
+
         # smaller volume is bought first
-        buying_index = np.where(actions > 0)[0]
+        long_short_index = np.where(signal != 1)[0]
+        closing_index = np.where(signal == 1)[0]
 
-        selling_index = np.where(actions < 0)[0]
-
+        money_from_closing = 0
         # first buy, then sell
-        if (actions[0] > actions[1]) and (actions[1] > 0):
-            for i in buying_index[::-1]:
-                actions[i] = self._buy_contract(i, actions[i])
+        if abs(actions[0]) > abs(actions[1]):
+            for i in long_short_index[::-1]:
+                actions[i] = self._long_short_contract(i, actions[i])
         else:
-            for i in buying_index:
-                actions[i] = self._buy_contract(i, actions[i])
+            for i in long_short_index:
+                actions[i] = self._long_short_contract(i, actions[i])
 
-        for i in selling_index:
-            actions[i] = self._sell_contract(i, actions[i]) * (-1)
+        for i in closing_index:
+            actions[i], money = self._closing_contract(i, actions[i])
+            money_from_closing += money
+
+        self.state[0] += money_from_closing
 
         # update state, transition from s to s+1
         self.previous_state = self.state
         self.point_in_time += 1
-        self.data = self.df.loc[self.point_in_time, :]
+        self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
         self.state = self._update_state()
 
         # update deposits regarding price changes
@@ -157,7 +164,6 @@ class TradingEnv(gym.Env):
                     self.last_non_zero_prices[ind] = 0
                 else:
                     delta[ind] = 0
-        after_trade_before_step_deposit = self.deposits
         self.deposits += delta * np.array(self.contract_size) * np.array(self.contract_positions)
         step_deposit = self.deposits.copy()
         step_pos = self.contract_positions.copy()
@@ -166,9 +172,10 @@ class TradingEnv(gym.Env):
         step_costs = end_costs - begin_costs
 
         margin_calls = [0] * 2
-        neg_depot_index = np.where(np.array(self.deposits) < np.array(self.contract_positions) * np.array(self.margins))[0]
+        neg_depot_index = np.where(np.array(self.deposits) < abs(np.array(self.contract_positions))
+                                   * np.array(self.margins))[0]
         for i in neg_depot_index:
-            margin_call = self.contract_positions[i] * self.margins[i] - self.deposits[i]
+            margin_call = abs(self.contract_positions[i]) * self.margins[i] - self.deposits[i]
             self.deposits[i] += margin_call
             self.state[0] -= margin_call
             margin_calls[i] = margin_call
@@ -180,20 +187,20 @@ class TradingEnv(gym.Env):
         # already in t+1
         step_end_assets = (self.state[0] + sum(self.deposits))
 
-        print('intended trades:', int_actions)
-        print('effective trades:', actions)
-        print('prices before trade:', np.array(self.previous_state[1:(self.contract_dim + 1)]))
-        print('margin calls:', margin_calls)
-        print('prices after trade:', np.array(self.state[1:(self.contract_dim + 1)]))
-        print('delta prices:', delta)
-        print('after time step(end) cash:', self.state[0],
-              '| positions:', self.contract_positions,
-              '| deposit:', self.deposits)
-        print('total costs:', self.costs, ' trades done:', self.trades)
-        print('step start assets:', step_start_assets,
-              'step_end_assets:', step_end_assets,
-              'asset delta:', step_end_assets-step_start_assets,
-              '\n', '------')
+        # print('intended trades:', int_actions)
+        # print('effective trades:', actions)
+        # print('prices before trade:', np.array(self.previous_state[1:(self.contract_dim + 1)]))
+        # print('margin calls:', margin_calls)
+        # print('prices after trade:', np.array(self.state[1:(self.contract_dim + 1)]))
+        # print('delta prices:', delta)
+        # print('after time step(end) cash:', self.state[0],
+        #       '| positions:', self.contract_positions,
+        #       '| deposit:', self.deposits)
+        # print('total costs:', self.costs, ' trades done:', self.trades)
+        # print('step start assets:', step_start_assets,
+        #       'step_end_assets:', step_end_assets,
+        #       'asset delta:', step_end_assets - step_start_assets,
+        #       '\n', '------')
 
         # add everything to memories
         self.actions_memory.append(actions)
@@ -217,7 +224,7 @@ class TradingEnv(gym.Env):
         # TODO: more sophisticated rewards
         self.reward = asset_delta - step_penalties
         self.rewards_memory.append(self.reward)
-        self.total_reward_memory.append(self.total_reward_memory[-1]+self.reward)
+        self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
         # print(self.reward)
 
         # terminal state is reached when either at end of data or reached 3 month
@@ -277,14 +284,14 @@ class TradingEnv(gym.Env):
         else:
             # for validation start at beginning then roll one month after each episode
             if self.validation:
-                self.point_in_time = 0 + 2000 * self.episodes  # if started from beginning or specific point in time
+                self.point_in_time = 5 + 2000 * self.episodes  # if started from beginning or specific point in time
 
             # for training start randomly, after each episode, chose random starting point
             else:
-                self.point_in_time = np.random.randint(len(self.df.index.unique())-1)
+                self.point_in_time = np.random.randint(5, len(self.df.index.unique()) - 100)
 
             self.initial_step = self.point_in_time
-            self.data = self.df.loc[self.point_in_time, :]
+            self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
 
             self.contract_positions = self.contract_positions_initial.copy()
             self.deposits = self.initial_deposits.copy()
@@ -320,7 +327,7 @@ class TradingEnv(gym.Env):
 
         return self.state
 
-    def _buy_contract(self, ind, action) -> int:
+    def _long_short_contract(self, ind, action) -> int:
         # check whether price is available, otherwise no trade
         if self.state[ind + 1] > float(0):  # buying for current step closing price
             # total money taken from cash per contract
@@ -332,7 +339,7 @@ class TradingEnv(gym.Env):
 
             affordable_contracts = self.state[0] // money_per_contract
 
-            buying_num = min(affordable_contracts, action)
+            buying_num = min(affordable_contracts, abs(action))
 
             buying_amount = money_per_contract * buying_num
 
@@ -341,55 +348,92 @@ class TradingEnv(gym.Env):
             # put margins into deposit
             self.deposits[ind] += buying_num * self.margins[ind]
 
-            # update position in contracts in the state
-            self.contract_positions[ind] += buying_num
-
             # update costs and trades
             self.costs += buying_num * costs_per_contract
             if buying_num != 0:
                 self.trades += 1
+
+            # update position in contracts in the state
+            if action < 0:
+                buying_num = -buying_num
+
+            self.contract_positions[ind] += buying_num
 
         else:
             buying_num = 0
 
         return buying_num
 
-    def _sell_contract(self, ind, actions) -> int:
+    def _closing_contract(self, ind, action) -> tuple:
         # check whether price is available, otherwise no trade
         if self.state[ind + 1] > 0:  # selling for current step closing price
-            if self.contract_positions[ind] > float(0):
-                selling_num = min(abs(actions), self.contract_positions[ind])
-                # total money getting from cash per contract
-                money_per_contract = (self.margins[ind]
-                                      - self.bid_ask[ind] * self.contract_size[ind]
-                                      - self.commission)
-                # total cost per one contract
-                costs_per_contract = (self.bid_ask[ind] * self.contract_size[ind] + self.commission)
+            traded_contracts = 0
 
-                # update balances
-                # TODO: when selling, how much margin do I get back? Distinguish between last and non-last contract sold
-                selling_amount = money_per_contract * selling_num
-                self.state[0] += selling_amount
+            # total money per contract
+            money_per_contract = (self.margins[ind]
+                                  - self.bid_ask[ind] * self.contract_size[ind]
+                                  - self.commission)
+            # total cost per one contract
+            costs_per_contract = (self.bid_ask[ind] * self.contract_size[ind] + self.commission)
+            position = abs(self.contract_positions[ind])
 
-                # update position in contracts
-                self.contract_positions[ind] -= selling_num
+            if position < abs(action):
+                intended_long_short = abs(action) - position
+                affordable_contracts = self.state[0] // money_per_contract
 
-                # update deposits and return initial margin if position is 0
-                self.deposits[ind] -= selling_num * self.margins[ind]
-                if self.contract_positions[ind] == float(0):
-                    self.state[0] += self.deposits[ind]
-                    self.deposits[ind] = 0
+                long_short_num = min(affordable_contracts, intended_long_short)
+
+                long_short_amount = money_per_contract * long_short_num
+
+                self.state[0] -= long_short_amount
+
+                # put margins into deposit
+                self.deposits[ind] += long_short_num * self.margins[ind]
+
+                # update position in contracts in the state
+                if action < 0:
+                    self.contract_positions[ind] -= long_short_num
+                else:
+                    self.contract_positions[ind] += long_short_num
 
                 # update costs and trades
-                self.costs += selling_num * costs_per_contract
-                self.trades += 1
+                self.costs += long_short_num * costs_per_contract
+                traded_contracts += long_short_num
 
+                closing_num = position
             else:
-                selling_num = 0
-        else:
-            selling_num = 0
+                closing_num = abs(action)
 
-        return selling_num
+            # update balances
+            # TODO: when selling, how much margin do I get back? Distinguish between last and non-last contract sold
+            closing_amount = money_per_contract * closing_num
+            money_back = closing_amount
+
+            # update position in contracts
+            if action < 0:
+                self.contract_positions[ind] -= closing_num
+            else:
+                self.contract_positions[ind] += closing_num
+
+            # update deposits and return initial margin if position is 0
+            self.deposits[ind] -= closing_num * self.margins[ind]
+            if self.contract_positions[ind] == float(0):
+                self.state[0] += self.deposits[ind]
+                self.deposits[ind] = 0
+
+            # update costs and trades
+            self.costs += closing_num * costs_per_contract
+            self.trades += 1
+
+            traded_contracts += closing_num
+            if action < 0:
+                traded_contracts = -traded_contracts
+
+        else:
+            traded_contracts = 0
+            money_back = 0
+
+        return traded_contracts, money_back
 
     def render(self, mode='human', close=False) -> None:
 
@@ -402,7 +446,7 @@ class TradingEnv(gym.Env):
 
     def _initiate_state(self):
         state = np.array([self.initial_amount]  # cash balance
-                         + self.data.closeprice.values.tolist()  # closeprices of contracts
+                         + self.data.closeprice.values.tolist()[-2:]  # closeprices of contracts
                          + self.contract_positions_initial  # positions in the contracts
                          + self.initial_deposits  # balance on deposits
                          + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], []),
@@ -412,7 +456,7 @@ class TradingEnv(gym.Env):
     def _update_state(self):
 
         state = np.array([self.state[0]]
-                         + self.data.closeprice.values.tolist()
+                         + self.data.closeprice.values.tolist()[-2:]
                          + list(self.contract_positions)
                          + list(self.deposits)
                          + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], []),
@@ -463,7 +507,7 @@ def build_env(df, specs):
 
     # defining the state space of the environment
     # cash balance + (closing prices + positions + deposits per contract) + (technical indicators per contract)
-    state_space = 1 + 3 * contract_dim + len(tech_ind_list) * contract_dim
+    state_space = 1 + 3 * contract_dim + len(tech_ind_list) * contract_dim * 5
 
     # add the data specific specifications to the model dict
     specs.update({"state_space": state_space,
