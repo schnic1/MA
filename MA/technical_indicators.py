@@ -1,6 +1,16 @@
 import pandas as pd
 
+from MA.config import NORM_ROLLING_WINDOW
 
+
+def rolling_normalization(df, window):
+    normalized_data = (df - df.rolling(window=window, min_periods=1).min()
+                       )/(
+            df.rolling(window=window, min_periods=1).max() - df.rolling(window=window, min_periods=1).min())
+    return normalized_data
+
+
+# TODO: add more indicators
 # Volatility indicators
 def bollinger_bands(close_price_series):
     from ta.volatility import BollingerBands
@@ -20,6 +30,7 @@ def bollinger_bands(close_price_series):
     # Add Bollinger Band low indicator
     df['bb_bbli'] = indicator_bb.bollinger_lband_indicator()
 
+    df = rolling_normalization(df, NORM_ROLLING_WINDOW)
     return df
 
 
@@ -55,15 +66,18 @@ def sma(close_price_series):
     df['sma50'] = SMAIndicator(close_price_series, window=50).sma_indicator()
     df['sma200'] = SMAIndicator(close_price_series, window=200).sma_indicator()
 
+    df = rolling_normalization(df, NORM_ROLLING_WINDOW)
+
     return df
 
 
 def ema(close_price_series):
     from ta.trend import EMAIndicator
 
-    indicator_ema = EMAIndicator(close_price_series, window=14)
+    indicator_ema = EMAIndicator(close_price_series, window=14).ema_indicator()
+    indicator_ema = rolling_normalization(indicator_ema, NORM_ROLLING_WINDOW)
 
-    return indicator_ema.ema_indicator()
+    return indicator_ema
 
 
 # TODO: Look at ADX again!
@@ -83,9 +97,10 @@ def adx(high_price_series, low_price_series, close_price_series):
 # Volume indicator
 def obv(close_price_series, vol_series):
     from ta.volume import OnBalanceVolumeIndicator
-    indicator_obv = OnBalanceVolumeIndicator(close=close_price_series, volume=vol_series)
+    indicator_obv = OnBalanceVolumeIndicator(close=close_price_series, volume=vol_series).on_balance_volume()
+    indicator_obv = rolling_normalization(indicator_obv, NORM_ROLLING_WINDOW)
 
-    return indicator_obv.on_balance_volume()
+    return indicator_obv
 
 
 def create_tech_indicators(df):

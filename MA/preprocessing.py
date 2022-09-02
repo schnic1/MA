@@ -28,31 +28,21 @@ def load_pkl_file(path) -> pd.DataFrame:
     return df
 
 
-# TODO: standardize data or normalize?
-def standardize_data(training, validation, test, tech_indicator_list) -> tuple:
+# TODO: standardize data with a rollilng window if possible/maybe try without standardized data
+def normalize_data(df, tech_indicator_list) -> pd.DataFrame:
     """
-    standardize technical indicator for the agent
+    normalize technical indicator for the agent
     # TODO: del source again:
     Source: https://towardsdatascience.com/preventing-data-leakage-in-your-machine-learning-model-9ae54b3cd1fb#:~:text=After%20splitting%20the%20data%20into,validation%20and%20test%20set%20normalization.
-    :param training: (df) pandas dataframe
-    :param validation: (df) pandas dataframe
-    :param test: (df) pandas dataframe
+    :param df: (df) pandas dataframe
     :param tech_indicator_list: list of technical indicators
     :return: tuple with standardized training, validation and test set
     """
-    for tech_ind in tech_indicator_list:
-        # only standardize for non-binary indicators
-        if len(training[tech_ind].unique()) > 2:
-            # determine mean and standard deviation for standardization from training set
-            mean = training[tech_ind].mean()
-            std = training[tech_ind].std()
+    df[tech_indicator_list] = (df[tech_indicator_list] - df[tech_indicator_list].min()
+                               )/(
+            df[tech_indicator_list].max() - df[tech_indicator_list].min())
 
-            # standardize sets with training mean and standard deviation
-            training[tech_ind] = (training[tech_ind] - mean)/std
-            validation[tech_ind] = (validation[tech_ind] - mean)/std
-            test[tech_ind] = (test[tech_ind] - mean)/std
-
-    return training, validation, test
+    return df
 
 
 def training_test_split(df, cut_off_training, cut_off_test, date_col='date') -> tuple:
@@ -136,7 +126,9 @@ def preprocess_data(zip_path) -> list:
         training, validation, test = training_test_split(data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
 
         # standardize technical indicator data using mean and std from training set for all
-        training, validation, test = standardize_data(training, validation, test, tech_ind_list)
+        training = normalize_data(training, tech_ind_list)
+        validation = normalize_data(validation, tech_ind_list)
+        test = normalize_data(test, tech_ind_list)
 
         # append the standardized sets to the according lists
         training_sets.append(training)

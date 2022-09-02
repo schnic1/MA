@@ -32,12 +32,13 @@ model = build_agent(env, method)
 episodes_training = 30  # (239670 // 2000) * 2 # 2000 is approx. one month, train with each month as a random start twice
 episodes_validation = 3  # 236444 // 2000
 
-total_timesteps = 15000
+total_timesteps = 1000
 
+# TODO: figure out the while episodes so it does not build a new model every time a new episode is started
 # train & save model
 print('started training on training set')
-while env.episodes <= episodes_training:
-    trained_model = train_model(model, total_timesteps=total_timesteps)
+# while env.episodes <= episodes_training:
+trained_model = train_model(model, total_timesteps=total_timesteps)
 
 model_name = save_model(trained_model, method)
 """

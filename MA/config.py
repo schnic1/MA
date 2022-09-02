@@ -2,6 +2,8 @@
 ZIP_PATH = "data/Intraday_Data.zip"
 DATA_PATH = "data/processed_data.pkl"
 
+NORM_ROLLING_WINDOW = 100
+
 # environment kwargs
 env_kwargs = {"initial_amount": 100000,
               "contract_size": [50, 1000],  # [ES, ZN]

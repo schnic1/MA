@@ -55,8 +55,9 @@ class TradingEnv(gym.Env):
         self.initial_deposits = [0] * contract_dim
         self.deposits = self.initial_deposits.copy()
 
+        # TODO: adjust max_contracts if to high and defaulting early
         self.max_contracts = [
-            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission) + 1)
+            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission))
             for i in range(self.contract_dim)]
         self.action_contracts = [2 * max_cont for max_cont in self.max_contracts]
 
@@ -165,8 +166,6 @@ class TradingEnv(gym.Env):
                 else:
                     delta[ind] = 0
         self.deposits += delta * np.array(self.contract_size) * np.array(self.contract_positions)
-        step_deposit = self.deposits.copy()
-        step_pos = self.contract_positions.copy()
 
         end_costs = self.costs
         step_costs = end_costs - begin_costs
@@ -204,8 +203,8 @@ class TradingEnv(gym.Env):
 
         # add everything to memories
         self.actions_memory.append(actions)
-        self.positions_memory.append(step_pos)
-        self.deposits_memory.append(list(step_deposit))
+        self.positions_memory.append(self.contract_positions.copy())
+        self.deposits_memory.append(list(self.deposits.copy()))
         self.date_memory.append(self._fetch_point_in_time())
         self.pf_value_memory.append(step_end_assets)
         self.cash_memory.append(self.state[0])
