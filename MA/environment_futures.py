@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 import gym
 import pandas as pd
@@ -31,10 +32,13 @@ class TradingEnv(gym.Env):
                  commission,
                  tech_indicators,
                  validation,
-                 point_in_time=5,
+                 point_in_time=0,
                  initial=True,
                  previous_state=list,
-                 print_verbosity=1):
+                 print_verbosity=1,
+                 saving_folder=0,
+                 finished=False
+                 ):
 
         self.df = df
         self.initial = initial
@@ -48,8 +52,7 @@ class TradingEnv(gym.Env):
         self.bid_ask = bid_ask
         self.commission = commission
         self.initial_amount = initial_amount
-        # self.deposits = [0] * contract_dim
-        # self.contract_positions = [0] * contract_dim
+
         self.contract_positions_initial = [0] * contract_dim
         self.contract_positions = self.contract_positions_initial.copy()
         self.initial_deposits = [0] * contract_dim
@@ -57,7 +60,7 @@ class TradingEnv(gym.Env):
 
         # TODO: adjust max_contracts if to high and defaulting early
         self.max_contracts = [
-            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission))
+            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)-2)
             for i in range(self.contract_dim)]
         self.action_contracts = [2 * max_cont for max_cont in self.max_contracts]
 
@@ -69,7 +72,7 @@ class TradingEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=(self.state_space,))
 
         self.tech_indicators = tech_indicators
-        self.last_non_zero_prices = np.array([0] * contract_dim)
+        self.last_non_zero_prices = np.array([0.0] * contract_dim)
 
         self.previous_state = previous_state
         self.state = self._initiate_state()
@@ -79,12 +82,15 @@ class TradingEnv(gym.Env):
         self.default = False
         self.validation = validation
         self.print_verbosity = print_verbosity
+        self.saving_folder = saving_folder
+        self.finished = finished
 
         self.reward = 0
         self.costs = 0
         self.trades = 0
 
         self.episodes = 0
+        self.days = 0
 
         # initialising memories
         self.cash_memory = [self.initial_amount]
@@ -100,6 +106,7 @@ class TradingEnv(gym.Env):
         self.margin_call_memory = []
         self.pf_value_memory = []
         self.PnL_memory = []
+        self.delta_memory = []
 
     def step(self, actions):
         # uncomment print statements to see functioning
@@ -108,6 +115,7 @@ class TradingEnv(gym.Env):
         #       '| positions:', self.contract_positions,
         #       '| deposit:', self.deposits)
 
+        step_penalties = 0
         int_actions = np.array(actions) - np.array(self.max_contracts)
         actions = np.array(actions) - np.array(self.max_contracts)
         step_start_assets = (self.state[0] + sum(self.deposits))
@@ -154,21 +162,18 @@ class TradingEnv(gym.Env):
             for ind in index:
                 delta[ind] = 0
                 if self.last_non_zero_prices[ind] == 0:
-                    self.last_non_zero_prices[ind] = past_prices[ind]
+                    self.last_non_zero_prices[ind] = float(past_prices[ind])
 
         if float(0) in past_prices:
             # print('past price is 0')
             index = np.where(past_prices == 0)[0]
             for ind in index:
-                if self.last_non_zero_prices[ind] != 0 and upcoming_prices[ind] != 0:
+                if self.last_non_zero_prices[ind] != 0.0 and upcoming_prices[ind] != 0.0:
                     delta[ind] = upcoming_prices[ind] - self.last_non_zero_prices[ind]
-                    self.last_non_zero_prices[ind] = 0
+                    self.last_non_zero_prices[ind] = 0.0
                 else:
                     delta[ind] = 0
         self.deposits += delta * np.array(self.contract_size) * np.array(self.contract_positions)
-
-        end_costs = self.costs
-        step_costs = end_costs - begin_costs
 
         margin_calls = [0] * 2
         neg_depot_index = np.where(np.array(self.deposits) < abs(np.array(self.contract_positions))
@@ -179,12 +184,34 @@ class TradingEnv(gym.Env):
             self.state[0] -= margin_call
             margin_calls[i] = margin_call
 
-            # if cash (self.state[0]) is negative:
-            if self.state[0] < 0:
-                self.default = True
+        # if cash (self.state[0]) is negative due to margin calls:
+        if self.state[0] < 0:
+
+            for i in neg_depot_index:
+                # for a position with margin call, we close one contract and reduce its deposit by one full margin
+                # this is after the margin call has been paid
+                self.contract_positions[i] -= self.contract_positions[i] / abs(self.contract_positions[i])
+                self.deposits[i] -= self.margins[i]
+
+                # the deducted margin is reduced by the transaction costs and added to the cash
+                self.state[0] += self.margins[i] - (self.bid_ask[i] * self.contract_size[i] + self.commission)
+
+                # the total costs as well as trades are updated
+                self.costs += (self.bid_ask[i] * self.contract_size[i] + self.commission)
+                self.trades += 1  # not included in trades, since they are forced
+
+                # if cash is negative, this yields a negative reward for each margin called position
+                step_penalties += 1000
+
+        end_costs = self.costs
+        step_costs = end_costs - begin_costs
 
         # already in t+1
         step_end_assets = (self.state[0] + sum(self.deposits))
+        if step_end_assets <= 5017:  # 5017 is the lowest cash needed for one trade, considered total default
+            self.default = True
+            # very high negative reward / penalty for default
+            step_penalties += 100000
 
         # print('intended trades:', int_actions)
         # print('effective trades:', actions)
@@ -203,6 +230,7 @@ class TradingEnv(gym.Env):
 
         # add everything to memories
         self.actions_memory.append(actions)
+        self.delta_memory.append(delta)
         self.positions_memory.append(self.contract_positions.copy())
         self.deposits_memory.append(list(self.deposits.copy()))
         self.date_memory.append(self._fetch_point_in_time())
@@ -216,24 +244,32 @@ class TradingEnv(gym.Env):
         asset_delta = step_end_assets - step_start_assets
         self.PnL_memory.append(asset_delta)
 
-        step_penalties = 0
-        if self.default:
-            step_penalties += 10000
-
         # TODO: more sophisticated rewards
-        self.reward = asset_delta - step_penalties
+        margin_call_weight = 2
+        trading_reward = sum([(abs(actions[i]) * self.bid_ask[i]
+                               * self.contract_size[i]
+                               + self.commission) - (margin_call_weight
+                                                     * margin_calls[i])
+                              for i in range(self.contract_dim)])
+        if asset_delta >= 0:
+            self.reward = asset_delta - step_penalties + trading_reward
+        else:
+            self.reward = asset_delta - step_penalties - trading_reward
+
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
         # print(self.reward)
 
         # terminal state is reached when either at end of data or reached 3 month
+        self.finished = False
         if self.point_in_time >= len(self.df.index.unique()) - 1:
             self.terminal = True
-        else:
+            self.finished = True
+        elif self.saving_folder != 3:
             starting_point_in_time = datetime.strptime(str(self.date_memory[0]), '%Y-%m-%d %H:%M:%S')
             current_point_in_time = datetime.strptime(str(self.date_memory[-1]), '%Y-%m-%d %H:%M:%S')
 
-            self.terminal = (current_point_in_time - starting_point_in_time).days >= 90
+            self.terminal = (current_point_in_time - starting_point_in_time).days >= self.days
 
         if self.default:
             self.terminal = True
@@ -247,6 +283,7 @@ class TradingEnv(gym.Env):
                             'actions': self.actions_memory,
                             'positions': self.positions_memory,
                             'deposits': self.deposits_memory,
+                            'delta prices': self.delta_memory,
                             'margin calls': self.margin_call_memory,
                             'PF value': self.pf_value_memory,
                             'costs': self.cost_memory,
@@ -258,11 +295,30 @@ class TradingEnv(gym.Env):
 
             episode_df = pd.DataFrame(data=episode_data)
             episode_df['returns'] = episode_df['PF value'].pct_change(1)
-            episode_df.to_csv(f'episode_data/episode_{self.episodes}_{datetime.now().strftime("%d_%m %H_%M")}.csv')
+            if self.saving_folder == 0:
+                episode_df.to_csv(
+                    f'episode_data/training/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}'
+                    f'_{datetime.now().strftime("%d_%m")}.csv')
+            elif self.saving_folder == 1:
+                episode_df.to_csv(
+                    f'episode_data/val_pred/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}'
+                    f'_{datetime.now().strftime("%d_%m")}.csv')
+            elif self.saving_folder == 2:
+                episode_df.to_csv(
+                    f'episode_data/val_train/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}'
+                    f'_{datetime.now().strftime("%d_%m")}.csv')
+            elif self.saving_folder == 3:
+                episode_df.to_csv(
+                    f'episode_data/test_pred/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}'
+                    f'_{datetime.now().strftime("%d_%m")}.csv')
 
             if self.episodes % self.print_verbosity == 0:
-                print(f'point in time: {self._fetch_point_in_time()}, episode: {self.episodes}')
-                print(f'steps done: {self.point_in_time - self.initial_step}')
+                print(f'point in time: {self._fetch_point_in_time()} , episode: {self.episodes}')
+                print(f'steps done: {self.point_in_time - self.initial_step}, (max {self.days} days)')
                 print(f'beginning assets: {self.pf_value_memory[0]:0.2f}')
                 print(f'final assets: {step_end_assets:0.2f}')
                 print(f'total rewards: {sum(self.rewards_memory):0.2f}')
@@ -271,7 +327,12 @@ class TradingEnv(gym.Env):
                 print(f'total trades: {self.trades:0.2f}')
                 print('----')
 
-            self.reset()
+            if self.point_in_time + 2000 >= len(self.df.index.unique()) - 1:
+                self.finished = True
+
+            if not self.finished:
+                self.reset()
+                self.terminal = False
 
         return self.state, self.reward, self.terminal, {}
 
@@ -282,8 +343,12 @@ class TradingEnv(gym.Env):
 
         else:
             # for validation start at beginning then roll one month after each episode
+            # TODO: point in time for validation set needs to be changed
             if self.validation:
-                self.point_in_time = 5 + 2000 * self.episodes  # if started from beginning or specific point in time
+                if self.finished:
+                    self.point_in_time = 5
+                else:
+                    self.point_in_time = self.point_in_time + 5  # if started from beginning or specific point in time
 
             # for training start randomly, after each episode, chose random starting point
             else:
@@ -301,7 +366,7 @@ class TradingEnv(gym.Env):
                               + sum(np.array(self.state[1:(self.contract_dim + 1)]) * self.contract_positions)
                               + sum(self.deposits)
                               )
-
+            self.days = random.randint(50, 130)
             self.costs = 0
             self.trades = 0
             self.reward = 0
@@ -320,7 +385,10 @@ class TradingEnv(gym.Env):
             self.rewards_memory = [0]
             self.actions_memory = [[0, 0]]
             self.PnL_memory = [0]
+            self.delta_memory = [[0, 0]]
             self.margin_call_memory = [[0, 0]]
+
+            self.last_non_zero_prices = np.array([0.0] * self.contract_dim)
 
         self.episodes += 1
 
@@ -422,7 +490,8 @@ class TradingEnv(gym.Env):
 
             # update costs and trades
             self.costs += closing_num * costs_per_contract
-            self.trades += 1
+            if closing_num > 0:
+                self.trades += 1
 
             traded_contracts += closing_num
             if action < 0:
@@ -439,7 +508,7 @@ class TradingEnv(gym.Env):
         return print(self.state)
 
     def _fetch_point_in_time(self) -> int:
-        time_stamp = self.data.date.unique()[0]
+        time_stamp = self.data.date.unique().max()
 
         return time_stamp
 
@@ -516,7 +585,9 @@ def build_env(df, specs):
 
     # establishing and vectorizing our environment with the data and the model specification dict
     train_env = TradingEnv(df=df, **specs)
-    environment_check(train_env)
+
+    # Uncomment to check environment
+    # environment_check(train_env)  # Checks if environment follows gym api and if compatible with Stable Baselines
 
     vec_train_env = train_env.vectorize_env()
 

@@ -20,14 +20,12 @@ def build_agent(env, agent):
 
 
 def train_model(agent, total_timesteps) -> tuple:
-    # reset_num_timesteps=False: training continues from last training step
+    # reset_num_timesteps=False: training continues and does not build a new model from scratch
     trained_model = agent.learn(total_timesteps=total_timesteps, reset_num_timesteps=False, tb_log_name=str(agent))
     return trained_model
 
 
 def make_prediction(trained_model, env, render=False):
-    # to capture how often which action was taken
-    action_dict = defaultdict(int)
 
     obs = env.reset()
     done = False
@@ -35,10 +33,8 @@ def make_prediction(trained_model, env, render=False):
     while not done:
         action, _state = trained_model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
-        action_dict[str(action)] += 1
         if render is True:
             env.render()
-    return action_dict
 
 
 # TODO: does loading the model reset the whole already done training? if yes, maybe 'get_parameters' & 'set_parameters'
