@@ -25,16 +25,15 @@ method = method
 if run_training:
     # building training environment
     env, _ = build_env(training, env_kwargs)
-    print(env.state)
     # show_env(10, env)  # see how the environment works with actions, step, etc.
 
     # build agent
     model = build_agent(env, method)
 
-    episodes_training = (239670 // 2000) * 2  # 2000 is approx. one month, train with each month as a random start twice
-    episodes_validation = 236444 // 2000
+    episodes_training = (239670 // 500) * 2  # 2000 is approx. one month, train with each month as a random start twice
+    episodes_validation = (236444 // 2000)
 
-    total_timesteps = 1500000
+    total_timesteps = 1000000
 
     # train & save model
     print('started training on training set')
@@ -61,6 +60,7 @@ if run_training:
     model_name_val = save_model(val_trained_model, method, validation=True)
 
 else:
+    env_kwargs['validation'] = True
     model_name_val = MA.config.trained_model
 
 # test environment

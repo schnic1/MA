@@ -30,4 +30,4 @@ run_training = True
 
 # saving & loading models path
 SAVE_MODEL_PATH = "models/"
-trained_model = 'A2C_val_05_09 13:46.zip'  # give name of model to load
+trained_model = 'A2C_reward3_11_9_v1.zip'  # give name of model to load
