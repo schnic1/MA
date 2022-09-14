@@ -53,6 +53,7 @@ class TradingEnv(gym.Env):
         self.bid_ask = bid_ask
         self.commission = commission
         self.initial_amount = initial_amount
+        self.starting_amount = initial_amount
 
         self.contract_positions_initial = [0] * contract_dim
         self.contract_positions = self.contract_positions_initial.copy()
@@ -61,7 +62,7 @@ class TradingEnv(gym.Env):
 
         # TODO: adjust max_contracts if to high and defaulting early
         self.max_contracts = [
-            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)-1)
+            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)-2)
             for i in range(self.contract_dim)]
         self.action_contracts = [2 * max_cont for max_cont in self.max_contracts]
 
@@ -103,6 +104,7 @@ class TradingEnv(gym.Env):
         self.total_costs_memory = []
         self.rewards_memory = []
         self.total_reward_memory = []
+        self.intended_actions_memory = []
         self.actions_memory = []
         self.margin_call_memory = []
         self.pf_value_memory = []
@@ -215,7 +217,7 @@ class TradingEnv(gym.Env):
 
         # already in t+1
         step_end_assets = (self.state[0] + sum(self.deposits))
-        if step_end_assets <= 5017:  # 5017 is the lowest cash needed for one trade, considered total default
+        if step_end_assets <= 80000:  # 5017 is the lowest cash needed for one trade, considered total default
             self.default = True
             # very high negative reward / penalty for default
             step_penalties += 100000
@@ -237,6 +239,7 @@ class TradingEnv(gym.Env):
 
         # add everything to memories
         self.actions_memory.append(actions)
+        self.intended_actions_memory.append(int_actions)
         self.delta_memory.append(delta)
         self.positions_memory.append(self.contract_positions.copy())
         self.deposits_memory.append(list(self.deposits.copy()))
@@ -258,7 +261,10 @@ class TradingEnv(gym.Env):
                        + sum(pos_before_trade * self.contract_size * delta))
 
         # TODO: more sophisticated rewards
+        """
         self.reward = step_end_assets - no_trade_pf + asset_delta - step_penalties
+        """
+
         """  
         # idea: the transaction costs are counted to the PnL, therefore the agent is indifferent to trade or hold     
         self.reward = 1.25 * asset_delta - step_penalties + sum([abs(actions[i])
@@ -286,10 +292,10 @@ class TradingEnv(gym.Env):
         else:
             self.reward = asset_delta - step_penalties - trading_reward
         """
-        """
+
         # reward function 1
         self.reward = asset_delta - step_penalties
-        """
+
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
         # print(self.reward)
@@ -317,6 +323,7 @@ class TradingEnv(gym.Env):
             episode_data = {'date': self.date_memory,
                             'cash': self.cash_memory,
                             'actions': self.actions_memory,
+                            'intendend_actions': self.intended_actions_memory,
                             'positions': self.positions_memory,
                             'deposits': self.deposits_memory,
                             'delta prices': self.delta_memory,
@@ -394,20 +401,23 @@ class TradingEnv(gym.Env):
             self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
             self.prices = self.data.closeprice[:2].values.tolist()
 
-            self.contract_positions = self.contract_positions_initial.copy()
+            if self.saving_folder == 0:
+                self.days = random.randint(3, 7)
+                self.contract_positions = list(self.action_space.sample()//3)
+                self.initial_deposits = list(np.array(self.contract_positions) * self.margins)
+                self.starting_amount = int(self.initial_amount - sum(self.initial_deposits))
+
+            else:
+                self.days = random.randint(50, 130)
+                self.contract_positions = self.contract_positions_initial.copy()
+                self.initial_deposits = [0] * self.contract_dim
+                self.starting_amount = self.initial_amount
+
             self.deposits = self.initial_deposits.copy()
 
             self.state = self._initiate_state()
 
-            pf_value_start = (self.state[0]
-                              + sum(np.array(self.state[1:(self.contract_dim + 1)]) * self.contract_positions)
-                              + sum(self.deposits)
-                              )
-
-            if self.saving_folder == 0:
-                self.days = random.randint(3, 7)
-            else:
-                self.days = random.randint(50, 130)
+            pf_value_start = (self.state[0] + sum(self.deposits))
 
             self.costs = 0
             self.trades = 0
@@ -415,16 +425,17 @@ class TradingEnv(gym.Env):
             self.terminal = False
             self.default = False
 
-            self.cash_memory = [self.initial_amount]
+            self.cash_memory = [self.starting_amount]
             self.pf_value_memory = [pf_value_start]
-            self.deposits_memory = [self.initial_deposits]
-            self.positions_memory = [self.contract_positions_initial]
+            self.deposits_memory = [self.initial_deposits.copy()]
+            self.positions_memory = [self.contract_positions.copy()]
             self.date_memory = [self._fetch_point_in_time()]
 
             self.total_costs_memory = [0]
             self.cost_memory = [0]
             self.total_reward_memory = [0]
             self.rewards_memory = [0]
+            self.intended_actions_memory = [[0, 0]]
             self.actions_memory = [[0, 0]]
             self.PnL_memory = [0]
             self.delta_memory = [[0, 0]]
@@ -555,9 +566,9 @@ class TradingEnv(gym.Env):
         return time_stamp
 
     def _initiate_state(self):
-        state = np.array([self.initial_amount]  # cash balance
+        state = np.array([self.starting_amount]  # cash balance
                          # + self.data.closeprice.values.tolist()[-2:]  # closeprices of contracts
-                         + self.contract_positions_initial  # positions in the contracts
+                         + self.contract_positions  # positions in the contracts
                          + self.initial_deposits  # balance on deposits
                          + sum([self.data[tech_ind].values.tolist() for tech_ind in self.tech_indicators], []),
                          dtype=np.float32)

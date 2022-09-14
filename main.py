@@ -30,8 +30,9 @@ if run_training:
     # build agent
     model = build_agent(env, method)
 
-    episodes_training = (239670 // 500) * 2  # 2000 is approx. one month, train with each month as a random start twice
-    episodes_validation = (236444 // 2000)
+    # training for at least the total time steps, if episodes not reached, it is extended.
+    episodes_training = (training.shape[0] // 500) * 2  # 2000 is approx. one month, train with each month as a random start twice
+    episodes_validation = (validation.shape[0] // 2000)
 
     total_timesteps = 1000000
 
