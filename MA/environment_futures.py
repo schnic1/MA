@@ -35,7 +35,7 @@ class TradingEnv(gym.Env):
                  point_in_time=0,
                  initial=True,
                  previous_state=list,
-                 print_verbosity=1,
+                 print_verbosity=1000,
                  saving_folder=0,
                  finished=False
                  ):
@@ -62,7 +62,7 @@ class TradingEnv(gym.Env):
 
         # TODO: adjust max_contracts if to high and defaulting early
         self.max_contracts = [
-            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)-2)
+            np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)/2+1)
             for i in range(self.contract_dim)]
         self.action_contracts = [2 * max_cont for max_cont in self.max_contracts]
 
@@ -150,6 +150,10 @@ class TradingEnv(gym.Env):
             actions[i], money = self._closing_contract(i, actions[i])
             money_from_closing += money
 
+        if self.state[0] < 0:
+            self.default = True
+            step_penalties += 100000
+
         self.state[0] += money_from_closing
 
         past_prices = np.array(self.prices.copy())  # price in s_t
@@ -194,7 +198,10 @@ class TradingEnv(gym.Env):
             margin_calls[i] = margin_call
 
         # if cash (self.state[0]) is negative due to margin calls:
-        if self.state[0] < 0:
+        if self.terminal:
+            pass
+
+        elif self.state[0] < 0:
 
             for i in neg_depot_index:
                 # for a position with margin call, we close one contract and reduce its deposit by one full margin
@@ -217,10 +224,11 @@ class TradingEnv(gym.Env):
 
         # already in t+1
         step_end_assets = (self.state[0] + sum(self.deposits))
-        if step_end_assets <= 80000:  # 5017 is the lowest cash needed for one trade, considered total default
-            self.default = True
-            # very high negative reward / penalty for default
-            step_penalties += 100000
+        if not self.validation:
+            if step_end_assets <= 70000:  # 5017 is the lowest cash needed for one trade, considered total default
+                self.default = True
+                # very high negative reward / penalty for default
+                step_penalties += 100000
 
         # print('intended trades:', int_actions)
         # print('effective trades:', actions)
@@ -252,8 +260,41 @@ class TradingEnv(gym.Env):
 
         # define rewards
         asset_delta = step_end_assets - step_start_assets
+        step_return = (step_end_assets - step_start_assets)/step_start_assets
         self.PnL_memory.append(asset_delta)
+        no_trade_pf = (cash_before_trade
+                       + sum(dep_before_trade)
+                       + sum(pos_before_trade * self.contract_size * delta))
 
+        # reward 5:
+        if self.default:
+            self.reward = 0
+        else:
+            self.reward = (1
+                           # + (step_end_assets/self.initial_amount-1)
+                           + step_return * 100
+                           # + (step_return - (no_trade_pf/step_start_assets-1))
+                           )
+        """
+        # reward 4
+        # 4.1: max(0, asset_delta) + 1
+        # incentives good trades and staying in trading, but no punishment
+        if self.default:
+            self.reward = 0
+        else:
+            self.reward = 1 + asset_delta/step_start_assets # use self.initial_amount instead of step end assets
+        """
+        """try
+        if asset_delta <= 0 or self.default:
+            self.reward = 0
+        else:
+            self.reward = 1 + asset_delta/step_start_assets
+        """
+
+        # self.reward = asset_delta / step_start_assets
+
+
+        """
         # calculate PF value as if no trades would have happened in step to compare with actual situation
         # reward function 3
         no_trade_pf = (cash_before_trade
@@ -261,7 +302,7 @@ class TradingEnv(gym.Env):
                        + sum(pos_before_trade * self.contract_size * delta))
 
         # TODO: more sophisticated rewards
-        """
+
         self.reward = step_end_assets - no_trade_pf + asset_delta - step_penalties
         """
 
@@ -293,9 +334,10 @@ class TradingEnv(gym.Env):
             self.reward = asset_delta - step_penalties - trading_reward
         """
 
+        """
         # reward function 1
         self.reward = asset_delta - step_penalties
-
+        """
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
         # print(self.reward)
@@ -323,7 +365,7 @@ class TradingEnv(gym.Env):
             episode_data = {'date': self.date_memory,
                             'cash': self.cash_memory,
                             'actions': self.actions_memory,
-                            'intendend_actions': self.intended_actions_memory,
+                            # 'intendend_actions': self.intended_actions_memory,
                             'positions': self.positions_memory,
                             'deposits': self.deposits_memory,
                             'delta prices': self.delta_memory,
@@ -338,17 +380,17 @@ class TradingEnv(gym.Env):
 
             episode_df = pd.DataFrame(data=episode_data)
             episode_df['returns'] = episode_df['PF value'].pct_change(1)
-            if self.saving_folder == 0:
+            if self.saving_folder == 0 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
                     f'episode_data/training/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
                     f'_{datetime.now().strftime("%d_%m")}.csv')
-            elif self.saving_folder == 1:
+            elif self.saving_folder == 1 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
                     f'episode_data/val_pred/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
                     f'_{datetime.now().strftime("%d_%m")}.csv')
-            elif self.saving_folder == 2:
+            elif self.saving_folder == 2 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
                     f'episode_data/val_train/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
@@ -359,7 +401,7 @@ class TradingEnv(gym.Env):
                     f'_steps{self.point_in_time - self.initial_step}'
                     f'_{datetime.now().strftime("%d_%m")}.csv')
 
-            if self.episodes % self.print_verbosity == 0:
+            if self.episodes % self.print_verbosity == 1:
                 print(f'point in time: {self._fetch_point_in_time()} , episode: {self.episodes}')
                 print(f'steps done: {self.point_in_time - self.initial_step}, ({days_lasted}/{self.days} days)')
                 print(f'beginning assets: {self.pf_value_memory[0]:0.2f}')
@@ -399,7 +441,7 @@ class TradingEnv(gym.Env):
 
             self.initial_step = self.point_in_time
             self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
-            self.prices = self.data.closeprice[:2].values.tolist()
+            self.prices = self.data.closeprice[-2:].values.tolist()
 
             if self.saving_folder == 0:
                 self.days = random.randint(3, 7)
@@ -457,9 +499,7 @@ class TradingEnv(gym.Env):
             # total cost per one contract
             costs_per_contract = (self.bid_ask[ind] * self.contract_size[ind] + self.commission)
 
-            affordable_contracts = self.state[0] // money_per_contract
-
-            buying_num = min(affordable_contracts, abs(action))
+            buying_num = abs(action)
 
             buying_amount = money_per_contract * buying_num
 
@@ -474,10 +514,10 @@ class TradingEnv(gym.Env):
                 self.trades += 1
 
             # update position in contracts in the state
+            self.contract_positions[ind] += action
+
             if action < 0:
                 buying_num = -buying_num
-
-            self.contract_positions[ind] += buying_num
 
         else:
             buying_num = 0
@@ -497,32 +537,24 @@ class TradingEnv(gym.Env):
             costs_per_contract = (self.bid_ask[ind] * self.contract_size[ind] + self.commission)
             position = abs(self.contract_positions[ind])
 
-            if position < abs(action):
-                intended_long_short = abs(action) - position
-                affordable_contracts = self.state[0] // money_per_contract
-
-                long_short_num = min(affordable_contracts, intended_long_short)
-
+            if position <= abs(action):
+                long_short_num = abs(action) - position
+                closing_num = position
                 long_short_amount = money_per_contract * long_short_num
 
                 self.state[0] -= long_short_amount
 
                 # put margins into deposit
-                self.deposits[ind] += long_short_num * self.margins[ind]
-
-                # update position in contracts in the state
-                if action < 0:
-                    self.contract_positions[ind] -= long_short_num
-                else:
-                    self.contract_positions[ind] += long_short_num
+                margin_payment = long_short_num * self.margins[ind]
+                self.deposits[ind] += margin_payment
 
                 # update costs and trades
                 self.costs += long_short_num * costs_per_contract
                 traded_contracts += long_short_num
 
-                closing_num = position
             else:
                 closing_num = abs(action)
+                margin_payment = 0
 
             # update balances
             # TODO: when selling, how much margin do I get back? Distinguish between last and non-last contract sold
@@ -530,16 +562,13 @@ class TradingEnv(gym.Env):
             money_back = closing_amount
 
             # update position in contracts
-            if action < 0:
-                self.contract_positions[ind] -= closing_num
-            else:
-                self.contract_positions[ind] += closing_num
+            self.contract_positions[ind] += action
 
-            # update deposits and return initial margin if position is 0
+            # update deposits and return initial margin if position is temporarily 0
             self.deposits[ind] -= closing_num * self.margins[ind]
-            if self.contract_positions[ind] == float(0):
-                self.state[0] += self.deposits[ind]
-                self.deposits[ind] = 0
+            if position == closing_num:
+                self.state[0] += self.deposits[ind] - margin_payment
+                self.deposits[ind] = margin_payment
 
             # update costs and trades
             self.costs += closing_num * costs_per_contract

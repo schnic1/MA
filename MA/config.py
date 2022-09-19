@@ -14,7 +14,7 @@ env_kwargs = {"initial_amount": 100000,
               }
 
 # data split specifications -> training, validation, test set
-CUT_OFF_DATE_train = "2015-01-01"
+CUT_OFF_DATE_train = "2016-01-01"
 CUT_OFF_DATE_test = "2020-01-01"
 
 # model parameters to start with
@@ -24,10 +24,10 @@ AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 5, "ent_coef": 0.01, "learning_rat
 
 # training specification
 # available agents for method: ["a2c", "ppo"]
-method = 'a2c'
+method = 'ppo'
 run_training = True
 
 
 # saving & loading models path
 SAVE_MODEL_PATH = "models/"
-trained_model = 'A2C_reward3_11_9_v1.zip'  # give name of model to load
+trained_model = 'PPO_val_18_09 00:21.zip'  # give name of model to load

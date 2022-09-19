@@ -15,9 +15,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # fetching data
 training, validation, test, processed_data = run_preprocess(DATA_PATH)
-# print(training.shape)  # shape = (239670, 23)
-# print(validation.shape)  # shape = (236444, 23)
-# print(test.shape)  # shape = (50988, 23)
+print(training.shape)  # shape = (239670, 23)
+print(validation.shape)  # shape = (236444, 23)
+print(test.shape)  # shape = (50988, 23)
 
 # define agent specifications
 method = method
@@ -31,18 +31,21 @@ if run_training:
     model = build_agent(env, method)
 
     # training for at least the total time steps, if episodes not reached, it is extended.
+    """    
     episodes_training = (training.shape[0] // 500) * 2  # 2000 is approx. one month, train with each month as a random start twice
     episodes_validation = (validation.shape[0] // 2000)
+    """
 
-    total_timesteps = 1000000
+    total_timesteps = 6000000  # TODO: adjust, 15 Mio prob to high
 
     # train & save model
     print('started training on training set')
-    while env.episodes <= episodes_training:
-        trained_model = train_model(model, total_timesteps=total_timesteps)
+    # while env.episodes <= episodes_training:
+    trained_model = train_model(model, total_timesteps=total_timesteps)
     model_name = save_model(trained_model, method)
 
     # validation environment
+    total_timesteps = 2000000
     env_kwargs['validation'] = True
     """
     val_env, _ = build_env(validation, env_kwargs)
@@ -56,8 +59,8 @@ if run_training:
     val_env, _ = build_env(validation, env_kwargs)
     val_env.saving_folder = 2
     loaded_model = load_model(method, model_name, val_env)
-    while val_env.episodes <= episodes_validation:
-        val_trained_model = train_model(loaded_model, total_timesteps=total_timesteps)
+    # while val_env.episodes <= episodes_validation:
+    val_trained_model = train_model(loaded_model, total_timesteps=total_timesteps)
     model_name_val = save_model(val_trained_model, method, validation=True)
 
 else:

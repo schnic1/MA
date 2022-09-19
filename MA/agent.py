@@ -21,7 +21,9 @@ def build_agent(env, agent):
 
 def train_model(agent, total_timesteps) -> tuple:
     # reset_num_timesteps=False: training continues and does not build a new model from scratch
-    trained_model = agent.learn(total_timesteps=total_timesteps, reset_num_timesteps=False, tb_log_name=str(agent))
+    trained_model = agent.learn(total_timesteps=total_timesteps,
+                                reset_num_timesteps=False,
+                                tb_log_name=str(agent))
     return trained_model
 
 
