@@ -125,12 +125,13 @@ def preprocess_data(zip_path) -> list:
         # split data into training, evaluation & test set
         training, validation, test = training_test_split(data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
 
-        # standardize technical indicator data using mean and std from training set for all
-        training = normalize_data(training, tech_ind_list)
-        validation = normalize_data(validation, tech_ind_list)
-        test = normalize_data(test, tech_ind_list)
+        # normalize technical indicator data, normalize only within individual data sets
+        tech_ind_norm = tech_ind_list[:-6]
+        training = normalize_data(training, tech_ind_norm)
+        validation = normalize_data(validation, tech_ind_norm)
+        test = normalize_data(test, tech_ind_norm)
 
-        # append the standardized sets to the according lists
+        # append the normalized sets to the according lists
         training_sets.append(training)
         validation_sets.append(validation)
         test_sets.append(test)

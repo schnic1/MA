@@ -40,7 +40,7 @@ def rsi(close_price_series):
     from ta.momentum import RSIIndicator
 
     # Initialize RSI
-    indicator_rsi = RSIIndicator(close=close_price_series, window=14)
+    indicator_rsi = RSIIndicator(close=close_price_series, window=9)
 
     return indicator_rsi.rsi()
 
@@ -49,7 +49,7 @@ def roc(close_price_series):
     from ta.momentum import ROCIndicator
 
     # Initialize ROC
-    indicator_roc = ROCIndicator(close=close_price_series, window=12)
+    indicator_roc = ROCIndicator(close=close_price_series, window=9)
 
     return indicator_roc.roc()
 
@@ -73,22 +73,23 @@ def sma(close_price_series):
     from ta.trend import SMAIndicator
     df = pd.DataFrame()
 
-    df['sma20'] = SMAIndicator(close_price_series, window=20).sma_indicator()
-    df['sma50'] = SMAIndicator(close_price_series, window=50).sma_indicator()
-    df['sma200'] = SMAIndicator(close_price_series, window=200).sma_indicator()
+    df['sma_12h'] = SMAIndicator(close_price_series, window=48).sma_indicator()
+    df['sma_24h'] = SMAIndicator(close_price_series, window=96).sma_indicator()
+    df['sma_48h'] = SMAIndicator(close_price_series, window=192).sma_indicator()
 
-    df['20_50_sma_diff'] = df['sma20'] - df['sma50']
-    df['50_200_sma_diff'] = df['sma50'] - df['sma200']
-    df['20_200_sma_diff'] = df['sma20'] - df['sma200']
+    df['12h_24h_sma_diff'] = df['sma_12h'] - df['sma_24h']
+    df['24h_48h_sma_diff'] = df['sma_24h'] - df['sma_48h']
+    df['12h_48h_sma_diff'] = df['sma_12h'] - df['sma_48h']
 
-    df['sma_ind_20'] = 0
-    df['sma_ind_50'] = 0
-    df['sma_ind_200'] = 0
-    df.loc[close_price_series <= df['sma20'], 'sma_ind_20'] = 1
-    df.loc[close_price_series <= df['sma50'], 'sma_ind_50'] = 1
-    df.loc[close_price_series <= df['sma200'], 'sma_ind_200'] = 1
+    df['sma_ind_12h'] = 0
+    df['sma_ind_24h'] = 0
+    df['sma_ind_48h'] = 0
+    df.loc[close_price_series <= df['sma_12h'], 'sma_ind_12h'] = 1
+    df.loc[close_price_series <= df['sma_24h'], 'sma_ind_24h'] = 1
+    df.loc[close_price_series <= df['sma_48h'], 'sma_ind_48h'] = 1
 
-    df[['sma20', 'sma50', 'sma200']] = rolling_normalization(df[['sma20', 'sma50', 'sma200']], NORM_ROLLING_WINDOW)
+    df[['sma_12h', 'sma_24h', 'sma_48h']] = rolling_normalization(df[['sma_12h', 'sma_24h', 'sma_48h']],
+                                                                  NORM_ROLLING_WINDOW)
 
     return df
 
@@ -97,22 +98,22 @@ def ema(close_price_series):
     from ta.trend import EMAIndicator
     df = pd.DataFrame()
 
-    df['ema20'] = EMAIndicator(close_price_series, window=20).ema_indicator()
-    df['ema50'] = EMAIndicator(close_price_series, window=50).ema_indicator()
-    df['ema200'] = EMAIndicator(close_price_series, window=200).ema_indicator()
+    df['ema_12h'] = EMAIndicator(close_price_series, window=48).ema_indicator()
+    df['ema_24h'] = EMAIndicator(close_price_series, window=96).ema_indicator()
+    df['ema_48h'] = EMAIndicator(close_price_series, window=192).ema_indicator()
 
-    df['20_50_ema_diff'] = df['ema20'] - df['ema50']
-    df['50_200_ema_diff'] = df['ema50'] - df['ema200']
-    df['20_200_ema_diff'] = df['ema20'] - df['ema200']
+    df['12h_24h_ema_diff'] = df['ema_12h'] - df['ema_24h']
+    df['24h_48h_ema_diff'] = df['ema_24h'] - df['ema_48h']
+    df['12h_48h_ema_diff'] = df['ema_12h'] - df['ema_48h']
 
-    df['ema_ind_20'] = 0
-    df['ema_ind_50'] = 0
-    df['ema_ind_200'] = 0
-    df.loc[close_price_series <= df['ema20'], 'ema_ind_20'] = 1
-    df.loc[close_price_series <= df['ema50'], 'ema_ind_50'] = 1
-    df.loc[close_price_series <= df['ema200'], 'ema_ind_200'] = 1
+    df['ema_ind_12h'] = 0
+    df['ema_ind_24h'] = 0
+    df['ema_ind_48h'] = 0
+    df.loc[close_price_series <= df['ema_12h'], 'ema_ind_12h'] = 1
+    df.loc[close_price_series <= df['ema_24h'], 'ema_ind_24h'] = 1
+    df.loc[close_price_series <= df['ema_48h'], 'ema_ind_48h'] = 1
 
-    df[['ema20', 'ema50', 'ema200']] = rolling_normalization(df[['ema20', 'ema50', 'ema200']], NORM_ROLLING_WINDOW)
+    df[['ema_12h', 'ema_24h', 'ema_48h']] = rolling_normalization(df[['ema_12h', 'ema_24h', 'ema_48h']], NORM_ROLLING_WINDOW)
 
     return df
 
@@ -122,7 +123,7 @@ def adx(high_price_series, low_price_series, close_price_series):
     from ta.trend import ADXIndicator
     df = pd.DataFrame()
 
-    indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series, window=14)
+    indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series, window=9)
 
     df['adx'] = indicator_adx.adx()
     df['adx_neg'] = indicator_adx.adx_neg()
@@ -140,6 +141,18 @@ def obv(close_price_series, vol_series):
     return indicator_obv
 
 
+def returns(close_price_series):
+    df = pd.DataFrame()
+    df['return_15min'] = close_price_series.pct_change(periods=1)
+    df['return_1h'] = close_price_series.pct_change(periods=4)
+    df['return_4h'] = close_price_series.pct_change(periods=16)
+    df['return_12h'] = close_price_series.pct_change(periods=48)
+    df['return_24h'] = close_price_series.pct_change(periods=96)
+    df['return_48h'] = close_price_series.pct_change(periods=192)
+
+    return df
+
+
 def create_tech_indicators(df):
     bb_df = bollinger_bands(df['ClosePrice'])
     rsi_df = rsi(df['ClosePrice'])
@@ -149,9 +162,10 @@ def create_tech_indicators(df):
     ema_df = ema(df['ClosePrice'])
     adx_df = adx(df['HighPrice'], df['LowPrice'], df['ClosePrice'])
     obv_df = obv(df['ClosePrice'], df['TotalVolume'])
+    ret_df = returns(df['ClosePrice'])
 
     # add technical indicators to original dataframe
-    df_indicator = pd.concat([df, bb_df, rsi_df, roc_df, macd_df, sma_df, ema_df, adx_df, obv_df], axis=1)
+    df_indicator = pd.concat([df, bb_df, rsi_df, roc_df, macd_df, sma_df, ema_df, adx_df, obv_df, ret_df], axis=1)
     indicator_list = [indicator for indicator in df_indicator.columns.tolist() if indicator not in df.columns.tolist()]
 
     return df_indicator, indicator_list

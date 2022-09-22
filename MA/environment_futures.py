@@ -35,7 +35,7 @@ class TradingEnv(gym.Env):
                  point_in_time=0,
                  initial=True,
                  previous_state=list,
-                 print_verbosity=1000,
+                 print_verbosity=500,
                  saving_folder=0,
                  finished=False
                  ):
@@ -110,6 +110,8 @@ class TradingEnv(gym.Env):
         self.pf_value_memory = []
         self.PnL_memory = []
         self.delta_memory = []
+        self.prices_memory = []
+        self.return_memory = []
 
     def step(self, actions):
         # uncomment print statements to see functioning
@@ -247,6 +249,7 @@ class TradingEnv(gym.Env):
 
         # add everything to memories
         self.actions_memory.append(actions)
+        self.prices_memory.append(upcoming_prices)
         self.intended_actions_memory.append(int_actions)
         self.delta_memory.append(delta)
         self.positions_memory.append(self.contract_positions.copy())
@@ -261,83 +264,18 @@ class TradingEnv(gym.Env):
         # define rewards
         asset_delta = step_end_assets - step_start_assets
         step_return = (step_end_assets - step_start_assets)/step_start_assets
+        self.return_memory.append(step_return)
         self.PnL_memory.append(asset_delta)
         no_trade_pf = (cash_before_trade
                        + sum(dep_before_trade)
                        + sum(pos_before_trade * self.contract_size * delta))
 
-        # reward 5:
+        # reward return:
         if self.default:
             self.reward = 0
         else:
-            self.reward = (1
-                           # + (step_end_assets/self.initial_amount-1)
-                           + step_return * 100
-                           # + (step_return - (no_trade_pf/step_start_assets-1))
-                           )
-        """
-        # reward 4
-        # 4.1: max(0, asset_delta) + 1
-        # incentives good trades and staying in trading, but no punishment
-        if self.default:
-            self.reward = 0
-        else:
-            self.reward = 1 + asset_delta/step_start_assets # use self.initial_amount instead of step end assets
-        """
-        """try
-        if asset_delta <= 0 or self.default:
-            self.reward = 0
-        else:
-            self.reward = 1 + asset_delta/step_start_assets
-        """
+            self.reward = (1 + step_return * 10)
 
-        # self.reward = asset_delta / step_start_assets
-
-
-        """
-        # calculate PF value as if no trades would have happened in step to compare with actual situation
-        # reward function 3
-        no_trade_pf = (cash_before_trade
-                       + sum(dep_before_trade)
-                       + sum(pos_before_trade * self.contract_size * delta))
-
-        # TODO: more sophisticated rewards
-
-        self.reward = step_end_assets - no_trade_pf + asset_delta - step_penalties
-        """
-
-        """  
-        # idea: the transaction costs are counted to the PnL, therefore the agent is indifferent to trade or hold     
-        self.reward = 1.25 * asset_delta - step_penalties + sum([abs(actions[i])
-                                                                 * (self.bid_ask[i]
-                                                                 * self.contract_size[i]
-                                                                 + self.commission)
-                                                                 for i in range(self.contract_dim)])
-        """
-        """
-        # idea: reward 'good' trades with adding the transaction costs to the reward and punish otherwise, margin calls 
-        reduce reward further.
-        # 'good' trades are steps where a positive PnL was achieved.
-        # flaws: transaction fees can negate positive PnL thus becomes punishment, also if one position achieves very 
-        # high PnL a possible bad trade in the other contract might be rewarded
-        # reward function 2
-        
-        margin_call_weight = 2
-        trading_reward = sum([(abs(actions[i]) * (self.bid_ask[i]
-                               * self.contract_size[i]
-                               + self.commission)) - (margin_call_weight
-                                                     * margin_calls[i])
-                              for i in range(self.contract_dim)])
-        if asset_delta >= 0:
-            self.reward = asset_delta - step_penalties + trading_reward
-        else:
-            self.reward = asset_delta - step_penalties - trading_reward
-        """
-
-        """
-        # reward function 1
-        self.reward = asset_delta - step_penalties
-        """
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
         # print(self.reward)
@@ -412,9 +350,6 @@ class TradingEnv(gym.Env):
                 print(f'total trades: {self.trades:0.2f}')
                 print('----')
 
-            if self.point_in_time + 2000 >= len(self.df.index.unique()) - 1:
-                self.finished = True
-
             if not self.finished:
                 self.reset()
                 self.terminal = False
@@ -431,26 +366,26 @@ class TradingEnv(gym.Env):
             # TODO: point in time for validation set needs to be changed
             if self.validation:
                 if self.finished:
-                    self.point_in_time = 5
+                    self.point_in_time = 0
                 else:
-                    self.point_in_time = self.point_in_time + 5  # if started from beginning or specific point in time
+                    self.point_in_time = self.point_in_time  # if started from beginning or specific point in time
 
-            # for training start randomly, after each episode, chose random starting point
+            # training only step: after each episode, chose random starting point
             else:
-                self.point_in_time = np.random.randint(5, len(self.df.index.unique()) - 100)
+                self.point_in_time = np.random.randint(0, len(self.df.index.unique()) - 500)
 
             self.initial_step = self.point_in_time
             self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
             self.prices = self.data.closeprice[-2:].values.tolist()
 
             if self.saving_folder == 0:
-                self.days = random.randint(3, 7)
+                self.days = 30  # random.randint(50, 130)
                 self.contract_positions = list(self.action_space.sample()//3)
                 self.initial_deposits = list(np.array(self.contract_positions) * self.margins)
                 self.starting_amount = int(self.initial_amount - sum(self.initial_deposits))
 
             else:
-                self.days = random.randint(50, 130)
+                self.days = 30 # random.randint(50, 130)
                 self.contract_positions = self.contract_positions_initial.copy()
                 self.initial_deposits = [0] * self.contract_dim
                 self.starting_amount = self.initial_amount
@@ -480,8 +415,10 @@ class TradingEnv(gym.Env):
             self.intended_actions_memory = [[0, 0]]
             self.actions_memory = [[0, 0]]
             self.PnL_memory = [0]
+            self.return_memory = [0]
             self.delta_memory = [[0, 0]]
             self.margin_call_memory = [[0, 0]]
+            self.prices_memory = [self.prices]
 
             self.last_non_zero_prices = np.array([0.0] * self.contract_dim)
 

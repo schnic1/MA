@@ -15,7 +15,7 @@ MODELS = {"a2c": A2C, "ddpg": DDPG, "td3": TD3, "sac": SAC, "ppo": PPO}
 
 def build_agent(env, agent):
     model_kwargs = AGENT_PARAM_DICT[f"{agent.upper()}_PARAMS"]
-    agent = MODELS[agent]('MlpPolicy', env, verbose=0, tensorboard_log='logs', **model_kwargs)
+    agent = Monitor(MODELS[agent]('MlpPolicy', env, verbose=0, tensorboard_log='logs', **model_kwargs))
     return agent
 
 
@@ -40,23 +40,22 @@ def make_prediction(trained_model, env, render=False):
 
 
 # TODO: does loading the model reset the whole already done training? if yes, maybe 'get_parameters' & 'set_parameters'
-def save_model(trained_model, method, path=SAVE_MODEL_PATH, validation=False):
+def save_model(trained_model, method, path=SAVE_MODEL_PATH, validation=False, printing=False, period=None):
     if validation:
-        saved_name = f'{method.upper()}_val_{datetime.now().strftime("%d_%m %H:%M")}'
-    else:
         saved_name = f'{method.upper()}_{datetime.now().strftime("%d_%m %H:%M")}'
+    else:
+        saved_name = f'{method.upper()}_model_{period}'
     trained_model.save(f'{path}{saved_name}')
-    print(f'saved model as {saved_name}.zip')
+    if printing:
+        print(f'saved model as {saved_name}.zip')
     return saved_name
 
 
-# TODO: UserWarning: Evaluation environment is not wrapped with a ``Monitor`` wrapper.
-#  This may result in reporting modified episode lengths and rewards, if other wrappers happen to modify these.
-#  Consider wrapping environment first with ``Monitor`` wrapper. warnings.warn(
-def load_model(method, model_name, env, path=SAVE_MODEL_PATH):
+def load_model(method, model_name, env, path=SAVE_MODEL_PATH, printing=False):
     model = MODELS[method].load(f'{path}{model_name}', env)
     model = Monitor(model)
-    print(f'loaded model {model_name}.zip')
+    if printing:
+        print(f'loaded model {model_name}.zip')
     return model
 
 

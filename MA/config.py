@@ -14,7 +14,7 @@ env_kwargs = {"initial_amount": 100000,
               }
 
 # data split specifications -> training, validation, test set
-CUT_OFF_DATE_train = "2016-01-01"
+CUT_OFF_DATE_train = "2015-01-01"
 CUT_OFF_DATE_test = "2020-01-01"
 
 # model parameters to start with
@@ -30,4 +30,4 @@ run_training = True
 
 # saving & loading models path
 SAVE_MODEL_PATH = "models/"
-trained_model = 'PPO_val_18_09 00:21.zip'  # give name of model to load
+trained_model = 'PPO_18_09 16:19.zip'  # give name of model to load
