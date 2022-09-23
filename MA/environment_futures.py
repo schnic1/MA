@@ -32,10 +32,10 @@ class TradingEnv(gym.Env):
                  commission,
                  tech_indicators,
                  validation,
-                 point_in_time=0,
+                 point_in_time=4,
                  initial=True,
                  previous_state=list,
-                 print_verbosity=500,
+                 print_verbosity=1000,
                  saving_folder=0,
                  finished=False
                  ):
@@ -45,7 +45,7 @@ class TradingEnv(gym.Env):
         self.initial_step = point_in_time
         self.point_in_time = point_in_time
         self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
-        self.prices = self.data.closeprice[:2].values.tolist()
+        self.prices = self.data.closeprice[-2:].values.tolist()
         self.contract_dim = contract_dim
 
         self.contract_size = contract_size
@@ -164,7 +164,7 @@ class TradingEnv(gym.Env):
         self.previous_state = self.state
         self.point_in_time += 1
         self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]
-        self.prices = self.data.closeprice[:2].values.tolist()
+        self.prices = self.data.closeprice[-2:].values.tolist()
         self.state = self._update_state()
 
         # update deposits regarding price changes
@@ -270,11 +270,15 @@ class TradingEnv(gym.Env):
                        + sum(dep_before_trade)
                        + sum(pos_before_trade * self.contract_size * delta))
 
-        # reward return:
+
+        # reward function
         if self.default:
             self.reward = 0
+        elif np.std(self.return_memory) != 0:
+            self.reward = np.mean(self.return_memory)/np.std(self.return_memory)
+            # self.reward = (1 + step_return)  # return + step reward
         else:
-            self.reward = (1 + step_return * 10)
+            self.reward = np.mean(self.return_memory) / 1e-10
 
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
@@ -366,13 +370,13 @@ class TradingEnv(gym.Env):
             # TODO: point in time for validation set needs to be changed
             if self.validation:
                 if self.finished:
-                    self.point_in_time = 0
+                    self.point_in_time = 4
                 else:
                     self.point_in_time = self.point_in_time  # if started from beginning or specific point in time
 
             # training only step: after each episode, chose random starting point
             else:
-                self.point_in_time = np.random.randint(0, len(self.df.index.unique()) - 500)
+                self.point_in_time = np.random.randint(4, len(self.df.index.unique()) - 500)
 
             self.initial_step = self.point_in_time
             self.data = self.df.loc[self.point_in_time - 4:self.point_in_time, :]

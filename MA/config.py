@@ -24,10 +24,10 @@ AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 5, "ent_coef": 0.01, "learning_rat
 
 # training specification
 # available agents for method: ["a2c", "ppo"]
-method = 'ppo'
+method = 'a2c'
 run_training = True
-
+# if run_training = False, define model to be loaded from the 'models' folder
+trained_model = 'A2C_model_0.zip'
 
 # saving & loading models path
 SAVE_MODEL_PATH = "models/"
-trained_model = 'PPO_18_09 16:19.zip'  # give name of model to load

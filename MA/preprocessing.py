@@ -32,8 +32,6 @@ def load_pkl_file(path) -> pd.DataFrame:
 def normalize_data(df, tech_indicator_list) -> pd.DataFrame:
     """
     normalize technical indicator for the agent
-    # TODO: del source again:
-    Source: https://towardsdatascience.com/preventing-data-leakage-in-your-machine-learning-model-9ae54b3cd1fb#:~:text=After%20splitting%20the%20data%20into,validation%20and%20test%20set%20normalization.
     :param df: (df) pandas dataframe
     :param tech_indicator_list: list of technical indicators
     :return: tuple with standardized training, validation and test set

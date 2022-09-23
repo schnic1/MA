@@ -1,29 +1,36 @@
 from datetime import datetime
-from stable_baselines3 import A2C, PPO, TD3, SAC, DDPG
+from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
-
-from collections import defaultdict
 
 from MA.config import AGENT_PARAM_DICT, SAVE_MODEL_PATH
 
 
-MODELS = {"a2c": A2C, "ddpg": DDPG, "td3": TD3, "sac": SAC, "ppo": PPO}
+MODELS = {"a2c": A2C, "ppo": PPO}
 
-# TODO: maybe look into better Policy/improve policy?
+
+def linear_schedule(learning_rate):
+    def progress(progress_remaining):
+        return progress_remaining * learning_rate
+    return progress
 
 
 def build_agent(env, agent):
     model_kwargs = AGENT_PARAM_DICT[f"{agent.upper()}_PARAMS"]
-    agent = Monitor(MODELS[agent]('MlpPolicy', env, verbose=0, tensorboard_log='logs', **model_kwargs))
+    model_kwargs['learning_rate'] = linear_schedule(model_kwargs['learning_rate'])
+    agent = Monitor(MODELS[agent]('MlpPolicy',
+                                  env,
+                                  verbose=0,
+                                  tensorboard_log='logs',
+                                  create_eval_env=True,
+                                  **model_kwargs))
     return agent
 
 
 def train_model(agent, total_timesteps) -> tuple:
-    # reset_num_timesteps=False: training continues and does not build a new model from scratch
     trained_model = agent.learn(total_timesteps=total_timesteps,
-                                reset_num_timesteps=False,
-                                tb_log_name=str(agent))
+                                tb_log_name=str(agent),
+                                reset_num_timesteps=True)
     return trained_model
 
 
@@ -39,12 +46,12 @@ def make_prediction(trained_model, env, render=False):
             env.render()
 
 
-# TODO: does loading the model reset the whole already done training? if yes, maybe 'get_parameters' & 'set_parameters'
-def save_model(trained_model, method, path=SAVE_MODEL_PATH, validation=False, printing=False, period=None):
+def save_model(trained_model, method, path=SAVE_MODEL_PATH, validation=False, printing=False, period=0):
     if validation:
         saved_name = f'{method.upper()}_{datetime.now().strftime("%d_%m %H:%M")}'
     else:
         saved_name = f'{method.upper()}_model_{period}'
+
     trained_model.save(f'{path}{saved_name}')
     if printing:
         print(f'saved model as {saved_name}.zip')
@@ -60,4 +67,5 @@ def load_model(method, model_name, env, path=SAVE_MODEL_PATH, printing=False):
 
 
 def policy_evaluation(model, env):
-    evaluate_policy(model, env, n_eval_episodes=5, return_episode_rewards=True)
+    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=10, render=False)
+    return mean, std
