@@ -45,7 +45,7 @@ if run_training:
     agent = build_agent(env, method)
 
     # define total time steps for training on training set
-    total_timesteps = 1000000
+    total_timesteps = 500000
 
     print('### started training on training set ###')
     trained_agent = train_model(agent, total_timesteps=total_timesteps,)
@@ -150,11 +150,9 @@ if run_training:
     model_df['rewards_ratio'] = rewards_ratio
 
     # select the best model according to the highest reward/ standard deviation(reward) ratio
-    model_index = np.where(model_df['rewards_ratio'] == model_df['rewards_ratio'].max())[0]
-    best_model_name = model_df['model_name'][0]
+    model_index = int(np.where(model_df['rewards_ratio'] == model_df['rewards_ratio'].max())[0])
+    best_model_name = model_df['model_name'][model_index]
     print(f'The best model is: {best_model_name}')
-
-    MA.config.trained_model = best_model_name
 
     after_validation_time = time.time()
     print(f'running time for validation:{round((after_validation_time - after_training_time) / 60, 0)} minutes')

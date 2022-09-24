@@ -271,14 +271,25 @@ class TradingEnv(gym.Env):
                        + sum(pos_before_trade * self.contract_size * delta))
 
 
-        # reward function
+        # reward functions
+
+        """
+        # Sharpe ratio reward function with step reward
+        
         if self.default:
             self.reward = 0
         elif np.std(self.return_memory) != 0:
-            self.reward = np.mean(self.return_memory)/np.std(self.return_memory)
-            # self.reward = (1 + step_return)  # return + step reward
+            self.reward = np.mean(self.return_memory)/np.std(self.return_memory) + 1
         else:
-            self.reward = np.mean(self.return_memory) / 1e-10
+            self.reward = np.mean(self.return_memory) / 1e-10 + 1
+        """
+
+        # simple return + step reward function
+
+        if self.default:
+            self.reward = 0
+        else:
+            self.reward = (1 + step_return)  # return + step reward
 
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)

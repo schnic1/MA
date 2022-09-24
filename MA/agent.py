@@ -30,7 +30,7 @@ def build_agent(env, agent):
 def train_model(agent, total_timesteps) -> tuple:
     trained_model = agent.learn(total_timesteps=total_timesteps,
                                 tb_log_name=str(agent),
-                                reset_num_timesteps=True)
+                                reset_num_timesteps=False)
     return trained_model
 
 
@@ -40,7 +40,7 @@ def make_prediction(trained_model, env, render=False):
     done = False
     # once through the whole environment
     while not done:
-        action, _state = trained_model.predict(obs, deterministic=True)
+        action, _state = trained_model.predict(obs, deterministic=False)
         obs, reward, done, info = env.step(action)
         if render is True:
             env.render()

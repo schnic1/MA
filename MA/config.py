@@ -19,12 +19,12 @@ CUT_OFF_DATE_test = "2020-01-01"
 
 # model parameters to start with
 AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 5, "ent_coef": 0.01, "learning_rate": 0.0007},
-                    'PPO_PARAMS':  {"n_steps": 2048, "ent_coef": 0.01, "learning_rate": 0.00025, "batch_size": 64}
+                    'PPO_PARAMS':  {"n_steps": 256, "ent_coef": 0.01, "learning_rate": 0.0007, "batch_size": 32}
                     }
 
 # training specification
 # available agents for method: ["a2c", "ppo"]
-method = 'a2c'
+method = 'ppo'
 run_training = True
 # if run_training = False, define model to be loaded from the 'models' folder
 trained_model = 'A2C_model_0.zip'

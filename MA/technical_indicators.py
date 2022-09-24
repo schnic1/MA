@@ -45,15 +45,6 @@ def rsi(close_price_series):
     return indicator_rsi.rsi()
 
 
-def roc(close_price_series):
-    from ta.momentum import ROCIndicator
-
-    # Initialize ROC
-    indicator_roc = ROCIndicator(close=close_price_series, window=9)
-
-    return indicator_roc.roc()
-
-
 # Trend indicators
 def macd(close_price_series):
     from ta.trend import MACD
@@ -156,7 +147,6 @@ def returns(close_price_series):
 def create_tech_indicators(df):
     bb_df = bollinger_bands(df['ClosePrice'])
     rsi_df = rsi(df['ClosePrice'])
-    roc_df = roc(df['ClosePrice'])
     macd_df = macd(df['ClosePrice'])
     sma_df = sma(df['ClosePrice'])
     ema_df = ema(df['ClosePrice'])
@@ -165,7 +155,7 @@ def create_tech_indicators(df):
     ret_df = returns(df['ClosePrice'])
 
     # add technical indicators to original dataframe
-    df_indicator = pd.concat([df, bb_df, rsi_df, roc_df, macd_df, sma_df, ema_df, adx_df, obv_df, ret_df], axis=1)
+    df_indicator = pd.concat([df, bb_df, rsi_df, macd_df, sma_df, ema_df, adx_df, obv_df, ret_df], axis=1)
     indicator_list = [indicator for indicator in df_indicator.columns.tolist() if indicator not in df.columns.tolist()]
 
     return df_indicator, indicator_list
