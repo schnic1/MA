@@ -10,7 +10,6 @@ def rolling_normalization(df, window):
     return normalized_data
 
 
-# TODO: add more indicators
 # Volatility indicators
 def bollinger_bands(close_price_series):
     from ta.volatility import BollingerBands
@@ -20,17 +19,18 @@ def bollinger_bands(close_price_series):
     indicator_bb = BollingerBands(close=close_price_series, window=20, window_dev=2)
 
     # Add Bollinger Bands features
-    df['bb_bbm'] = indicator_bb.bollinger_mavg()
-    df['bb_bbh'] = indicator_bb.bollinger_hband()
-    df['bb_bbl'] = indicator_bb.bollinger_lband()
+    bb_bbh = indicator_bb.bollinger_hband()
+    bb_bbl = indicator_bb.bollinger_lband()
+
+    # normalizing bollinger bands with rolling window does not make much sense, therefore the proximity to the upper
+    # band in percent of the bandwidth is added, as well as the indicators for higher and lower band.
+    df['bb_hi_prox'] = (bb_bbh - close_price_series)/(bb_bbh - bb_bbl)
 
     # Add Bollinger Band high indicator
     df['bb_bbhi'] = indicator_bb.bollinger_hband_indicator()
 
     # Add Bollinger Band low indicator
     df['bb_bbli'] = indicator_bb.bollinger_lband_indicator()
-
-    df = rolling_normalization(df, NORM_ROLLING_WINDOW)
 
     return df
 
@@ -42,7 +42,7 @@ def rsi(close_price_series):
     # Initialize RSI
     indicator_rsi = RSIIndicator(close=close_price_series, window=9)
 
-    return indicator_rsi.rsi()
+    return indicator_rsi.rsi()/100
 
 
 # Trend indicators
@@ -72,13 +72,6 @@ def sma(close_price_series):
     df['24h_48h_sma_diff'] = df['sma_24h'] - df['sma_48h']
     df['12h_48h_sma_diff'] = df['sma_12h'] - df['sma_48h']
 
-    df['sma_ind_12h'] = 0
-    df['sma_ind_24h'] = 0
-    df['sma_ind_48h'] = 0
-    df.loc[close_price_series <= df['sma_12h'], 'sma_ind_12h'] = 1
-    df.loc[close_price_series <= df['sma_24h'], 'sma_ind_24h'] = 1
-    df.loc[close_price_series <= df['sma_48h'], 'sma_ind_48h'] = 1
-
     df[['sma_12h', 'sma_24h', 'sma_48h']] = rolling_normalization(df[['sma_12h', 'sma_24h', 'sma_48h']],
                                                                   NORM_ROLLING_WINDOW)
 
@@ -97,28 +90,21 @@ def ema(close_price_series):
     df['24h_48h_ema_diff'] = df['ema_24h'] - df['ema_48h']
     df['12h_48h_ema_diff'] = df['ema_12h'] - df['ema_48h']
 
-    df['ema_ind_12h'] = 0
-    df['ema_ind_24h'] = 0
-    df['ema_ind_48h'] = 0
-    df.loc[close_price_series <= df['ema_12h'], 'ema_ind_12h'] = 1
-    df.loc[close_price_series <= df['ema_24h'], 'ema_ind_24h'] = 1
-    df.loc[close_price_series <= df['ema_48h'], 'ema_ind_48h'] = 1
-
-    df[['ema_12h', 'ema_24h', 'ema_48h']] = rolling_normalization(df[['ema_12h', 'ema_24h', 'ema_48h']], NORM_ROLLING_WINDOW)
+    df[['ema_12h', 'ema_24h', 'ema_48h']] = rolling_normalization(df[['ema_12h', 'ema_24h', 'ema_48h']],
+                                                                  NORM_ROLLING_WINDOW)
 
     return df
 
 
-# TODO: Look at ADX again!
 def adx(high_price_series, low_price_series, close_price_series):
     from ta.trend import ADXIndicator
     df = pd.DataFrame()
 
     indicator_adx = ADXIndicator(high_price_series, low_price_series, close_price_series, window=9)
 
-    df['adx'] = indicator_adx.adx()
-    df['adx_neg'] = indicator_adx.adx_neg()
-    df['adx_pos'] = indicator_adx.adx_pos()
+    df['adx'] = indicator_adx.adx()/100
+    df['adx_neg'] = indicator_adx.adx_neg()/100
+    df['adx_pos'] = indicator_adx.adx_pos()/100
 
     return df
 

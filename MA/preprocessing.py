@@ -28,21 +28,6 @@ def load_pkl_file(path) -> pd.DataFrame:
     return df
 
 
-# TODO: standardize data with a rollilng window if possible/maybe try without standardized data
-def normalize_data(df, tech_indicator_list) -> pd.DataFrame:
-    """
-    normalize technical indicator for the agent
-    :param df: (df) pandas dataframe
-    :param tech_indicator_list: list of technical indicators
-    :return: tuple with standardized training, validation and test set
-    """
-    df[tech_indicator_list] = (df[tech_indicator_list] - df[tech_indicator_list].min()
-                               )/(
-            df[tech_indicator_list].max() - df[tech_indicator_list].min())
-
-    return df
-
-
 def training_test_split(df, cut_off_training, cut_off_test, date_col='date') -> tuple:
     """
     split dataset into training and testing set
@@ -123,13 +108,8 @@ def preprocess_data(zip_path) -> list:
         # split data into training, evaluation & test set
         training, validation, test = training_test_split(data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
 
-        # normalize technical indicator data, normalize only within individual data sets
-        tech_ind_norm = tech_ind_list[:-6]
-        training = normalize_data(training, tech_ind_norm)
-        validation = normalize_data(validation, tech_ind_norm)
-        test = normalize_data(test, tech_ind_norm)
+        #TODO: insert plotting code
 
-        # append the normalized sets to the according lists
         training_sets.append(training)
         validation_sets.append(validation)
         test_sets.append(test)

@@ -32,7 +32,9 @@ class TradingEnv(gym.Env):
                  commission,
                  tech_indicators,
                  validation,
+                 reward_arg,
                  point_in_time=4,
+                 period=0,
                  initial=True,
                  previous_state=list,
                  print_verbosity=1000,
@@ -60,7 +62,6 @@ class TradingEnv(gym.Env):
         self.initial_deposits = [0] * contract_dim
         self.deposits = self.initial_deposits.copy()
 
-        # TODO: adjust max_contracts if to high and defaulting early
         self.max_contracts = [
             np.ceil(self.initial_amount / (self.margins[i] + self.bid_ask[i] * contract_size[i] + self.commission)/2+1)
             for i in range(self.contract_dim)]
@@ -82,11 +83,13 @@ class TradingEnv(gym.Env):
         self.terminal = False
         self.margin_call = False
         self.default = False
+        self.period = period
         self.validation = validation
         self.print_verbosity = print_verbosity
         self.saving_folder = saving_folder
         self.finished = finished
 
+        self.reward_arg = reward_arg
         self.reward = 0
         self.costs = 0
         self.trades = 0
@@ -269,27 +272,19 @@ class TradingEnv(gym.Env):
         no_trade_pf = (cash_before_trade
                        + sum(dep_before_trade)
                        + sum(pos_before_trade * self.contract_size * delta))
-
-
-        # reward functions
-
-        """
-        # Sharpe ratio reward function with step reward
-        
         if self.default:
             self.reward = 0
-        elif np.std(self.return_memory) != 0:
-            self.reward = np.mean(self.return_memory)/np.std(self.return_memory) + 1
-        else:
-            self.reward = np.mean(self.return_memory) / 1e-10 + 1
-        """
 
         # simple return + step reward function
+        elif self.reward_arg == 'return':
+            self.reward = step_return+1  # return + step reward
 
-        if self.default:
-            self.reward = 0
-        else:
-            self.reward = (1 + step_return)  # return + step reward
+        # Sharpe ratio reward function with step reward
+        elif self.reward_arg == 'sharpe':
+            if np.std(self.return_memory) != 0:
+                self.reward = np.mean(self.return_memory)/np.std(self.return_memory)
+            else:
+                self.reward = np.mean(self.return_memory) / 1e-10
 
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
@@ -333,24 +328,29 @@ class TradingEnv(gym.Env):
 
             episode_df = pd.DataFrame(data=episode_data)
             episode_df['returns'] = episode_df['PF value'].pct_change(1)
+
             if self.saving_folder == 0 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
-                    f'episode_data/training/episode_{self.episodes}'
-                    f'_steps{self.point_in_time - self.initial_step}'
-                    f'_{datetime.now().strftime("%d_%m")}.csv')
+                    f'model_data/episode_data/training/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}.csv')
             elif self.saving_folder == 1 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
-                    f'episode_data/val_pred/episode_{self.episodes}'
+                    f'model_data/episode_data/val_pred/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
-                    f'_{datetime.now().strftime("%d_%m")}.csv')
+                    f'_{self.period}.csv')
             elif self.saving_folder == 2 and self.episodes % self.print_verbosity == 1:
                 episode_df.to_csv(
-                    f'episode_data/val_train/episode_{self.episodes}'
+                    f'model_data/episode_data/val_train/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
-                    f'_{datetime.now().strftime("%d_%m")}.csv')
+                    f'_{self.period}.csv')
             elif self.saving_folder == 3:
                 episode_df.to_csv(
-                    f'episode_data/test_pred/episode_{self.episodes}'
+                    f'model_data/episode_data/policy_eval/episode_{self.episodes}'
+                    f'_steps{self.point_in_time - self.initial_step}'
+                    f'_{self.period}.csv')
+            elif self.saving_folder == 4:
+                episode_df.to_csv(
+                    f'model_data/episode_data/test_pred/episode_{self.episodes}'
                     f'_steps{self.point_in_time - self.initial_step}'
                     f'_{datetime.now().strftime("%d_%m")}.csv')
 
@@ -378,7 +378,6 @@ class TradingEnv(gym.Env):
 
         else:
             # for validation start at beginning then roll one month after each episode
-            # TODO: point in time for validation set needs to be changed
             if self.validation:
                 if self.finished:
                     self.point_in_time = 4
@@ -509,7 +508,6 @@ class TradingEnv(gym.Env):
                 margin_payment = 0
 
             # update balances
-            # TODO: when selling, how much margin do I get back? Distinguish between last and non-last contract sold
             closing_amount = money_per_contract * closing_num
             money_back = closing_amount
 
@@ -590,7 +588,6 @@ def show_env(num, env):
         environment_functioning(env)
 
 
-# TODO: increments episodes, maybe do it optional
 def environment_check(env):
     check_env(env)
 
@@ -604,7 +601,6 @@ def build_env(df, specs):
     """
     # some more specifications for the environment depending on the dataset
     contract_dim = len(df.ticker.unique())  # number of different tickers in dataset
-    # TODO: way to use tech_ind_list returned with function "create_tech_indicators"?
     tech_ind_list = df.columns.tolist()[7:]  # different indicators (they start at column index 7)
 
     # defining the state space of the environment

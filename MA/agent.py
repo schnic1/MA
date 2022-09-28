@@ -16,12 +16,12 @@ def linear_schedule(learning_rate):
 
 
 def build_agent(env, agent):
-    model_kwargs = AGENT_PARAM_DICT[f"{agent.upper()}_PARAMS"]
+    model_kwargs = AGENT_PARAM_DICT[f"{agent.upper()}_PARAMS"].copy()
     model_kwargs['learning_rate'] = linear_schedule(model_kwargs['learning_rate'])
     agent = Monitor(MODELS[agent]('MlpPolicy',
                                   env,
                                   verbose=0,
-                                  tensorboard_log='logs',
+                                  tensorboard_log='model_data/logs',
                                   create_eval_env=True,
                                   **model_kwargs))
     return agent
@@ -67,5 +67,5 @@ def load_model(method, model_name, env, path=SAVE_MODEL_PATH, printing=False):
 
 
 def policy_evaluation(model, env):
-    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=10, render=False)
+    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=20, render=False)
     return mean, std
