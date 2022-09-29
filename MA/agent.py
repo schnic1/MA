@@ -67,5 +67,5 @@ def load_model(method, model_name, env, path=SAVE_MODEL_PATH, printing=False):
 
 
 def policy_evaluation(model, env):
-    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=20, render=False)
+    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=20, render=False, deterministic=False)
     return mean, std

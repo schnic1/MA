@@ -33,7 +33,7 @@ AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 128,
 
 # training specification
 # available agents for method: ["a2c", "ppo"]
-method = 'a2c'
+method = 'ppo'
 run_training = True
 # if run_training = False, define model to be loaded from the 'models' folder
 trained_model = 'A2C_model_0.zip'

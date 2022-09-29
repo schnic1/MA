@@ -13,9 +13,7 @@ from stable_baselines3.common.env_checker import check_env
 
 class TradingEnv(gym.Env):
     """
-    Trading environment for the future contracts.
-    Based on FinRL git hub repo: https://github.com/AI4Finance-Foundation/FinRL/blob/master/finrl/meta/env_stock_trading
-    /env_stocktrading.py
+    Trading environment for future contracts.
     """
 
     metadata = {'render.modes': ['human']}

@@ -64,7 +64,7 @@ if run_training:
         f.write(f'{key}: {value}\n')
 
     # define total time steps for training on training set
-    total_timesteps = 5000000
+    total_timesteps = 10000000
     f.write(f'training timesteps: {total_timesteps}\n')
 
     print('### started training on training set ###')
@@ -167,7 +167,10 @@ if run_training:
         # append the metrics to the metrics lists
         mean_rewards.append(mean_reward)
         std_rewards.append(std_reward)
-        rewards_ratio.append(mean_reward/std_reward)
+        if std_reward != 0:
+            rewards_ratio.append(mean_reward/std_reward)
+        else:
+            rewards_ratio.append(mean_reward/10e-13)
 
     # add metrics lists to the model dataframe
     model_df['mean_rewards'] = mean_rewards
