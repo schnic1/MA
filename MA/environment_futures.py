@@ -121,7 +121,6 @@ class TradingEnv(gym.Env):
         #       '| positions:', self.contract_positions,
         #       '| deposit:', self.deposits)
 
-        step_penalties = 0
         cash_before_trade = self.state[0]
         pos_before_trade = np.array(self.contract_positions)
         dep_before_trade = np.array(self.deposits)
@@ -132,6 +131,7 @@ class TradingEnv(gym.Env):
 
         begin_costs = self.costs
 
+        # determine whether an action is closing only
         position_sign = np.array([1 if pos > 0 else 2 if pos == 0 else 0 for pos in self.contract_positions])
         action_sign = np.array([1 if act > 0 else 0 for act in actions])
         signal = position_sign + action_sign
@@ -155,7 +155,6 @@ class TradingEnv(gym.Env):
 
         if self.state[0] < 0:
             self.default = True
-            step_penalties += 100000
 
         self.state[0] += money_from_closing
 
@@ -219,19 +218,14 @@ class TradingEnv(gym.Env):
                 self.costs += (self.bid_ask[i] * self.contract_size[i] + self.commission)
                 self.trades += 1  # not included in trades, since they are forced
 
-                # if cash is negative, this yields a negative reward for each margin called position
-                step_penalties += 10000
-
         end_costs = self.costs
         step_costs = end_costs - begin_costs
 
         # already in t+1
         step_end_assets = (self.state[0] + sum(self.deposits))
         if not self.validation:
-            if step_end_assets <= 70000:  # 5017 is the lowest cash needed for one trade, considered total default
+            if step_end_assets <= 50000:  # 5017 is the lowest cash needed for one trade, considered total default
                 self.default = True
-                # very high negative reward / penalty for default
-                step_penalties += 100000
 
         # print('intended trades:', int_actions)
         # print('effective trades:', actions)
@@ -252,7 +246,7 @@ class TradingEnv(gym.Env):
         self.actions_memory.append(actions)
         self.prices_memory.append(upcoming_prices)
         self.intended_actions_memory.append(int_actions)
-        self.delta_memory.append(delta)
+        self.delta_memory.append(list(delta))
         self.positions_memory.append(self.contract_positions.copy())
         self.deposits_memory.append(list(self.deposits.copy()))
         self.date_memory.append(self._fetch_point_in_time())
@@ -267,22 +261,27 @@ class TradingEnv(gym.Env):
         step_return = (step_end_assets - step_start_assets)/step_start_assets
         self.return_memory.append(step_return)
         self.PnL_memory.append(asset_delta)
-        no_trade_pf = (cash_before_trade
-                       + sum(dep_before_trade)
-                       + sum(pos_before_trade * self.contract_size * delta))
+
         if self.default:
             self.reward = 0
 
         # simple return + step reward function
         elif self.reward_arg == 'return':
-            self.reward = step_return+1  # return + step reward
+            self.reward = step_return + 0.1  # return + step reward
 
         # Sharpe ratio reward function with step reward
         elif self.reward_arg == 'sharpe':
-            if np.std(self.return_memory) != 0:
-                self.reward = np.mean(self.return_memory)/np.std(self.return_memory)
+            if np.std(self.return_memory[-5:]) == 0:
+                self.reward = 0
             else:
-                self.reward = np.mean(self.return_memory) / 1e-10
+                sigma = np.std(self.return_memory[-5:])
+
+                if len(self.pf_value_memory) < 5:
+                    inter_value = self.pf_value_memory[0]
+                else:
+                    inter_value = self.pf_value_memory[-5]
+                pf_return = (step_end_assets / inter_value) - 1
+                self.reward = pf_return/sigma
 
         self.rewards_memory.append(self.reward)
         self.total_reward_memory.append(self.total_reward_memory[-1] + self.reward)
@@ -396,8 +395,14 @@ class TradingEnv(gym.Env):
                 self.initial_deposits = list(np.array(self.contract_positions) * self.margins)
                 self.starting_amount = int(self.initial_amount - sum(self.initial_deposits))
 
+            elif self.saving_folder == 4:
+                self.days = 500
+                self.contract_positions = self.contract_positions_initial.copy()
+                self.initial_deposits = [0] * self.contract_dim
+                self.starting_amount = self.initial_amount
+
             else:
-                self.days = 30 # random.randint(50, 130)
+                self.days = 30  # random.randint(50, 130)
                 self.contract_positions = self.contract_positions_initial.copy()
                 self.initial_deposits = [0] * self.contract_dim
                 self.starting_amount = self.initial_amount

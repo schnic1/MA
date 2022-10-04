@@ -1,8 +1,30 @@
-# data file paths for loading and saving
-ZIP_PATH = "data/Intraday_Data.zip"
-DATA_PATH = "data/processed_data.pkl"
+### training specification ###
 
-NORM_ROLLING_WINDOW = 100
+# available agents for method: ["a2c", "ppo"]
+method = 'a2c'
+run_training = False
+evaluation = True
+# if run_training = False, define model to be loaded from the 'models' folder
+trained_model = 'A2C_model_5.zip'
+
+# if evaluation True, define period to be evaluated and loaded from test_pred folder
+evaluation_period = 'episode_5_steps5547_03_10.csv'
+bm_pos = [2,7]
+
+TOTAL_TIME_STEPS = 5000000
+
+# model parameters to start with
+AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 512,
+                                   "ent_coef": 0.01,
+                                   "learning_rate": 0.0004,
+                                   "gamma": 0.9},
+
+                    'PPO_PARAMS': {"n_steps": 2048,
+                                   "ent_coef": 0.025,
+                                   "learning_rate": 0.0002,
+                                   "clip_range": 0.2,
+                                   "gamma": 0.85}
+                    }
 
 # environment kwargs
 env_kwargs = {"initial_amount": 100000,
@@ -11,32 +33,25 @@ env_kwargs = {"initial_amount": 100000,
               "bid_ask": [0.5, 0.015],  # [ES, ZN], according to Bloomberg Aug. 2022
               "commission": 2,  # normal market rate
               "validation": False,
-              'reward_arg': 'return'  # define reward function ['return', 'sharpe']
+              'reward_arg': 'sharpe'  # define reward function ['return', 'sharpe']
               }
+
+### program specifications ###
+# saving & loading models path
+SAVE_MODEL_PATH = "model_data/models/"
+
+# data file paths for loading and saving
+ZIP_PATH = "data/Intraday_Data.zip"
+DATA_PATH = "data/processed_data.pkl"
+
+# evaluation path
+EVAL_PATH = "model_data/episode_data/test_pred/"
+PLOT_PATH = "model_data/evaluation/"
 
 # data split specifications -> training, validation, test set
 CUT_OFF_DATE_train = "2015-01-01"
 CUT_OFF_DATE_test = "2020-01-01"
 
-# model parameters to start with
-AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 128,
-                                   "ent_coef": 0.05,
-                                   "learning_rate": 0.001,
-                                   "gamma": 0.8},
+# look back for rolling window normalization
+NORM_ROLLING_WINDOW = 100
 
-                    'PPO_PARAMS':  {"n_steps": 2048,
-                                    "ent_coef": 0.05,
-                                    "learning_rate": 0.00015,
-                                    "batch_size": 512,
-                                    "gamma": 0.8}
-                    }
-
-# training specification
-# available agents for method: ["a2c", "ppo"]
-method = 'ppo'
-run_training = True
-# if run_training = False, define model to be loaded from the 'models' folder
-trained_model = 'A2C_model_0.zip'
-
-# saving & loading models path
-SAVE_MODEL_PATH = "model_data/models/"

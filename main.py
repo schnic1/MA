@@ -14,14 +14,17 @@ import MA.config
 from MA.preprocessing import run_preprocess
 from MA.environment_futures import build_env, show_env
 from MA.agent import build_agent, train_model, save_model, make_prediction, load_model, policy_evaluation
-from MA.config import DATA_PATH, env_kwargs, CUT_OFF_DATE_train, AGENT_PARAM_DICT
-from MA.config import method, run_training
+from MA.config import DATA_PATH, CUT_OFF_DATE_train
+from MA.config import method, run_training, env_kwargs, AGENT_PARAM_DICT, TOTAL_TIME_STEPS, evaluation
+
+from MA.evaluation import run_eval
+from MA.config import evaluation
 
 # time computation time
 start = time.time()
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-parent_dirs =['episode_data', 'logs', 'models', 'images']
+parent_dirs =['episode_data', 'logs', 'models', 'evaluation']
 
 for dir in parent_dirs:
     os.makedirs(f'model_data/{dir}', exist_ok=True)
@@ -47,6 +50,7 @@ f.write(f'method: {method},\n')
 # define if run_training in config.py file
 # if run_training = False, model zip needs to be given as parameter
 if run_training:
+    '''
     """
     in the first section, the agent is trained on the training set with random initialisation of point in time and 
     contract position in order to get it to learn different situations in general and thus keeping it flexible.
@@ -64,7 +68,7 @@ if run_training:
         f.write(f'{key}: {value}\n')
 
     # define total time steps for training on training set
-    total_timesteps = 10000000
+    total_timesteps = TOTAL_TIME_STEPS
     f.write(f'training timesteps: {total_timesteps}\n')
 
     print('### started training on training set ###')
@@ -193,7 +197,7 @@ if run_training:
     after_validation_time = time.time()
     print(f'running time for validation:{round((after_validation_time - after_training_time) / 60, 0)} minutes')
 
-else:
+elif not evaluation:
     # adjust env_kwargs dict to validation mode and load the according model from a zip file
     env_kwargs['validation'] = True
     best_model_name = MA.config.trained_model
@@ -212,6 +216,13 @@ best_agent = load_model(method, best_model_name, test_env)
 make_prediction(best_agent, test_env)
 
 f.close()
+'''
+
+elif evaluation and not run_training:
+    run_eval(test_set)
+    print('x')
+
+
 end = time.time()
 print(f'running time:{round((end - start)/60, 0)} minutes')
 

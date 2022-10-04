@@ -108,8 +108,6 @@ def preprocess_data(zip_path) -> list:
         # split data into training, evaluation & test set
         training, validation, test = training_test_split(data, CUT_OFF_DATE_train, CUT_OFF_DATE_test)
 
-        #TODO: insert plotting code
-
         training_sets.append(training)
         validation_sets.append(validation)
         test_sets.append(test)
@@ -143,7 +141,7 @@ def run_preprocess(data_path) -> tuple:
         set_list = preprocess_data(ZIP_PATH)
         processed_data = pd.concat([df for df in set_list], axis=0)
         processed_data.to_pickle(data_path)  # Uncomment line to create data file
-        # processed_data.to_csv("data/test_file.csv")  # for data inspection
+        processed_data.to_csv("data/test_file.csv")  # for data inspection
 
         training, validation, test = set_list[0], set_list[1], set_list[2]
 
