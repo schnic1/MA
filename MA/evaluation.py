@@ -1,10 +1,7 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
-from datetime import datetime
 
-from MA.config import evaluation, EVAL_PATH, evaluation_period, env_kwargs, bm_pos, PLOT_PATH
+from MA.config import EVAL_PATH, evaluation_period, env_kwargs, bm_pos, PLOT_PATH
 
 
 def perf_evaluation(df):
@@ -14,22 +11,23 @@ def perf_evaluation(df):
     df['total PnL'] = float(df['PF value'][-1:]) - starting_value
 
     df['cum_ret'] = (df['returns'] + 1).cumprod()
-    eval_dict['expected_return'] = np.mean(df['returns'])
-    eval_dict['cum_return'] = float(df['cum_ret'][-1:]) - 1
+    eval_dict['Mean Ret.'] = np.mean(df['returns'])
+    eval_dict['tot. cum. Ret.'] = float(df['cum_ret'][-1:]) - 1
 
-    eval_dict['pf_std'] = np.std(df['returns'])
+    eval_dict['std(R)'] = np.std(df['returns'])
 
     # calculate downside risk
-    eval_dict['pf_std_down'] = np.std(df['returns'][df['returns'] < 0])
+    eval_dict['down std(R)'] = np.std(df['returns'][df['returns'] < 0])
 
-    eval_dict['sharpe ratio'] = eval_dict['expected_return'] / eval_dict['pf_std']
-    eval_dict['sortino_ratio'] = eval_dict['expected_return'] / eval_dict['pf_std_down']
+    eval_dict['Sharpe'] = eval_dict['Mean Ret.'] / eval_dict['std(R)']
+    eval_dict['Sortino'] = eval_dict['Mean Ret.'] / eval_dict['down std(R)']
 
     maximum = df['PF value'].rolling(min_periods=1, window=df.shape[0]).max()
     df['interval_drawdown'] = df['PF value']/maximum - 1
     df['max_dd'] = df['interval_drawdown'].rolling(min_periods=1, window=df.shape[0]).min()
 
-    eval_dict['calmar_ratio'] = eval_dict['expected_return'] / abs(df['max_dd'].min())
+    eval_dict['Calmar'] = eval_dict['Mean Ret.'] / abs(df['max_dd'].min())
+    eval_dict['MDD'] = df['max_dd'].min()
 
     return [eval_dict, df]
 
@@ -78,6 +76,7 @@ def same_period(bm_set, perf_df):
 
     return df
 
+
 def visualize_evals(bm, pred):
 
     df_bm = pd.DataFrame.from_dict(bm[0], orient='index', columns=['Benchmark'])
@@ -90,18 +89,21 @@ def visualize_evals(bm, pred):
     from MA.plots import cumulative_return
     cumulative_return(bm, pred, PLOT_PATH)
 
+    # price plots
+    from MA.plots import price_plots
+    price_plots(bm, PLOT_PATH)
 
-"""    # Maximum Drawdown
-    fig, ax = plt.subplots(2, 1, figsize=(10, 6))
-    plt.plot()
-    bm[1]['interval_drawdown'].plot()
-    bm[1]['max_dd'].plot()
-    plt.show()
+    # time line of agents positions
+    from MA.plots import positions_plot
+    positions_plot(pred, PLOT_PATH)
 
-    pred[1]['interval_drawdown'].plot()
-    pred[1]['max_dd'].plot()
-    plt.show()"""
+    # maximum drawdown of benchmark and agent's strategies
+    from MA.plots import max_drawdown
+    max_drawdown(bm, pred, PLOT_PATH)
 
+    # create return distributions
+    from MA.plots import dist_of_return
+    dist_of_return(bm, pred, PLOT_PATH)
 
 
 def run_eval(bm_set):
@@ -109,7 +111,7 @@ def run_eval(bm_set):
     prediction_set = prediction_set.iloc[:, 1:]
     print(f'loaded, {evaluation_period}')
 
-    feature_cols = ['date', 'PF value', 'PnL', 'returns']
+    feature_cols = ['date', 'PF value', 'PnL', 'returns', 'positions']
 
     prediction_set = prediction_set[feature_cols]
     # drop the first and the last rows. in the first nothing happens,
@@ -117,9 +119,10 @@ def run_eval(bm_set):
     prediction_set = prediction_set.iloc[:-1, :].fillna(0)
 
     bm_set = transform_set(bm_set)
+    feature_cols.remove('positions')
+    feature_cols.extend(['full_close_es', 'full_close_zn'])
     bm_set = same_period(bm_set, prediction_set)
     bm_set = bm_set[feature_cols]
-
     bm = perf_evaluation(bm_set)
     pred = perf_evaluation(prediction_set)
 

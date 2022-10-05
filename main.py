@@ -220,8 +220,6 @@ f.close()
 
 elif evaluation and not run_training:
     run_eval(test_set)
-    print('x')
-
 
 end = time.time()
 print(f'running time:{round((end - start)/60, 0)} minutes')

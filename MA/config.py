@@ -8,8 +8,8 @@ evaluation = True
 trained_model = 'A2C_model_5.zip'
 
 # if evaluation True, define period to be evaluated and loaded from test_pred folder
-evaluation_period = 'episode_5_steps5547_03_10.csv'
-bm_pos = [2,7]
+evaluation_period = 'episode_518_steps110_03_10.csv'
+bm_pos = [2, 7]
 
 TOTAL_TIME_STEPS = 5000000
 
