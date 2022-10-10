@@ -11,7 +11,7 @@ trained_model = 'PPO_model_60.zip'
 evaluation_period = 'episode_12_steps2140_03_10.csv'
 bm_pos = [2, 7]
 
-TOTAL_TIME_STEPS = 1000
+TOTAL_TIME_STEPS = 5000000
 
 # model parameters to start with
 AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 512,
