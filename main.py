@@ -13,7 +13,7 @@ import numpy as np
 import MA.config
 from MA.preprocessing import run_preprocess
 from MA.environment_futures import build_env, show_env
-from MA.agent import build_agent, train_model, save_model, make_prediction, load_model, policy_evaluation
+from MA.agent import build_agent, train_model, save_model, make_prediction, load_model, policy_evaluation, test_agent
 from MA.config import DATA_PATH, CUT_OFF_DATE_train
 from MA.config import method, run_training, env_kwargs, AGENT_PARAM_DICT, TOTAL_TIME_STEPS, evaluation
 
@@ -36,9 +36,9 @@ for dir in child_dirs:
 
 # fetching data
 training_set, validation_set, test_set, processed_data = run_preprocess(DATA_PATH)
-print(training_set.shape)  # shape = (239670, 23)
-print(validation_set.shape)  # shape = (236444, 23)
-print(test_set.shape)  # shape = (50988, 23)
+# print(training_set.shape)  # shape = (239670, 23)
+# print(validation_set.shape)  # shape = (236444, 23)
+# print(test_set.shape)  # shape = (50988, 23)
 
 # generate file to write down model specifications
 f = open(f'model_data/model_specs.txt', 'w')
@@ -50,7 +50,6 @@ f.write(f'method: {method},\n')
 # define if run_training in config.py file
 # if run_training = False, model zip needs to be given as parameter
 if run_training:
-    '''
     """
     in the first section, the agent is trained on the training set with random initialisation of point in time and 
     contract position in order to get it to learn different situations in general and thus keeping it flexible.
@@ -197,28 +196,18 @@ if run_training:
     after_validation_time = time.time()
     print(f'running time for validation:{round((after_validation_time - after_training_time) / 60, 0)} minutes')
 
+    test_agent(test_set, env_kwargs, method, best_model_name)
+
 elif not evaluation:
     # adjust env_kwargs dict to validation mode and load the according model from a zip file
     env_kwargs['validation'] = True
     best_model_name = MA.config.trained_model
 
-"""
-The agent is applied to the before unseen test data. After building the environment and loading the agent, it makes its
-trading decisions and saves the file(s) to the according records folder.
-"""
-# test environment
-test_env, _ = build_env(test_set, env_kwargs)
-test_env.saving_folder = 4  # changing records folder to test prediction (test_pred)
-print('predicting with test set')
-
-best_agent = load_model(method, best_model_name, test_env)
-
-make_prediction(best_agent, test_env)
+    test_agent(test_set, env_kwargs, method, best_model_name)
 
 f.close()
-'''
 
-elif evaluation and not run_training:
+if evaluation and not run_training:
     run_eval(test_set)
 
 end = time.time()

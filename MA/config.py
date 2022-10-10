@@ -1,17 +1,17 @@
 ### training specification ###
 
 # available agents for method: ["a2c", "ppo"]
-method = 'a2c'
-run_training = False
-evaluation = True
+method = 'ppo'
+run_training = True
+evaluation = False
 # if run_training = False, define model to be loaded from the 'models' folder
-trained_model = 'A2C_model_5.zip'
+trained_model = 'PPO_model_60.zip'
 
 # if evaluation True, define period to be evaluated and loaded from test_pred folder
-evaluation_period = 'episode_518_steps110_03_10.csv'
+evaluation_period = 'episode_12_steps2140_03_10.csv'
 bm_pos = [2, 7]
 
-TOTAL_TIME_STEPS = 5000000
+TOTAL_TIME_STEPS = 1000
 
 # model parameters to start with
 AGENT_PARAM_DICT = {'A2C_PARAMS': {"n_steps": 512,
@@ -33,7 +33,7 @@ env_kwargs = {"initial_amount": 100000,
               "bid_ask": [0.5, 0.015],  # [ES, ZN], according to Bloomberg Aug. 2022
               "commission": 2,  # normal market rate
               "validation": False,
-              'reward_arg': 'sharpe'  # define reward function ['return', 'sharpe']
+              'reward_arg': 'return'  # define reward function ['return', 'sharpe']
               }
 
 ### program specifications ###

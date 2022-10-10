@@ -4,6 +4,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 
 from MA.config import AGENT_PARAM_DICT, SAVE_MODEL_PATH
+from MA.environment_futures import build_env
 
 
 MODELS = {"a2c": A2C, "ppo": PPO}
@@ -67,5 +68,20 @@ def load_model(method, model_name, env, path=SAVE_MODEL_PATH, printing=False):
 
 
 def policy_evaluation(model, env):
-    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=20, render=False, deterministic=False)
+    mean, std = evaluate_policy(model, Monitor(env), n_eval_episodes=2, render=False, deterministic=False)
     return mean, std
+
+
+def test_agent(test_set, env_kwargs, method, best_model_name):
+    """
+    The agent is applied to the before unseen test data. After building the environment and loading the agent, it makes its
+    trading decisions and saves the file(s) to the according records folder.
+    """
+    # test environment
+    test_env, _ = build_env(test_set, env_kwargs)
+    test_env.saving_folder = 4  # changing records folder to test prediction (test_pred)
+    print('predicting with test set')
+
+    best_agent = load_model(method, best_model_name, test_env)
+
+    make_prediction(best_agent, test_env)

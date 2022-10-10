@@ -5,6 +5,10 @@ from matplotlib.dates import DateFormatter
 
 import ast
 
+"""
+This scrip defines all the different plots.
+"""
+
 
 def cumulative_return(bm, pred, path):
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -29,15 +33,14 @@ def cumulative_return(bm, pred, path):
 def price_plots(bm, path):
     fig, ax = plt.subplots(figsize=(10, 6))
     x = bm[1]['date']
-    y1 = bm[1]['full_close_es']
-    y2 = bm[1]['full_close_zn']
+    y1 = bm[1]['full_close_es'] / bm[1]['full_close_es'][0]
+    y2 = bm[1]['full_close_zn'] / bm[1]['full_close_zn'][0]
 
     plt.title('Price Development')
+
     ln1 = ax.plot(x, y1, 'crimson', label='ES')
-    ax.set_ylabel('Prices ES', color='crimson')
-    ax2 = ax.twinx()
-    ln2 = ax2.plot(x, y2, 'orange', label='ZN')
-    ax2.set_ylabel('Prices ZN', color='orange')
+    ln2 = ax.plot(x, y2, 'orange', label='ZN')
+    ax.set_ylabel('Prices Change')
 
     date_form = DateFormatter("%d-%m-%y\n%H:%M")
     ax.xaxis.set_major_formatter(date_form)

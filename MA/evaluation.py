@@ -5,9 +5,11 @@ from MA.config import EVAL_PATH, evaluation_period, env_kwargs, bm_pos, PLOT_PAT
 
 
 def perf_evaluation(df):
+    """ computes the evaluation metrics and generates a table as .csv"""
     eval_dict = {}
     starting_value = 100000
 
+    # calculating the total change in PF value
     df['total PnL'] = float(df['PF value'][-1:]) - starting_value
 
     df['cum_ret'] = (df['returns'] + 1).cumprod()
@@ -33,6 +35,7 @@ def perf_evaluation(df):
 
 
 def transform_set(df):
+    """changes the test data set into a for evaluation purposes usable dataframe"""
 
     es_set = df.loc[df['ticker'] == 'ES'].reset_index()
     es_set['date'] = es_set['date'].apply(pd.to_datetime)
@@ -55,6 +58,7 @@ def transform_set(df):
 
 
 def same_period(bm_set, perf_df):
+    """brings the benchmark to the same period as the to be evaluated episode"""
 
     start_date = perf_df['date'].min()
     end_date = perf_df['date'].max()
@@ -79,12 +83,6 @@ def same_period(bm_set, perf_df):
 
 def visualize_evals(bm, pred):
 
-    df_bm = pd.DataFrame.from_dict(bm[0], orient='index', columns=['Benchmark'])
-    df_pred = pd.DataFrame.from_dict(pred[0], orient='index', columns=['Agent'])
-
-    df = pd.concat([df_bm, df_pred], axis=1).transpose()
-    df.to_csv(PLOT_PATH + 'results')
-
     # cumulative return plot
     from MA.plots import cumulative_return
     cumulative_return(bm, pred, PLOT_PATH)
@@ -106,7 +104,16 @@ def visualize_evals(bm, pred):
     dist_of_return(bm, pred, PLOT_PATH)
 
 
+def contract_set(series):
+    df = pd.DataFrame()
+    df['PF value'] = series
+    df['returns'] = df['PF value'].pct_change().fillna(0)
+
+    return df
+
+
 def run_eval(bm_set):
+    """ runs the evaluation steps above, generates metrics table and plots the according figures"""
     prediction_set = pd.read_csv(EVAL_PATH + evaluation_period)
     prediction_set = prediction_set.iloc[:, 1:]
     print(f'loaded, {evaluation_period}')
@@ -126,9 +133,20 @@ def run_eval(bm_set):
     bm = perf_evaluation(bm_set)
     pred = perf_evaluation(prediction_set)
 
+    # contract performances
+    df_es = contract_set(bm_set['full_close_es'])
+    es = perf_evaluation(df_es)
+    df_zn = contract_set(bm_set['full_close_zn'])
+    zn = perf_evaluation(df_zn)
+
     visualize_evals(bm, pred)
 
+    df_bm = pd.DataFrame.from_dict(bm[0], orient='index', columns=['Benchmark'])
+    df_pred = pd.DataFrame.from_dict(pred[0], orient='index', columns=['Agent'])
+    df_es = pd.DataFrame.from_dict(es[0], orient='index', columns=['ES'])
+    df_zn = pd.DataFrame.from_dict(zn[0], orient='index', columns=['ZN'])
 
-
+    df = pd.concat([df_bm, df_pred, df_es, df_zn], axis=1).transpose()
+    df.to_csv(PLOT_PATH + 'results')
 
 
